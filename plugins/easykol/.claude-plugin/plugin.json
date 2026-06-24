@@ -1,0 +1,11 @@
+{
+  "name": "easykol",
+  "version": "0.1.0",
+  "description": "EasyKOL KOL discovery, analysis, and outreach skill for YouTube / TikTok / Instagram",
+  "author": {
+    "name": "EasyKOL",
+    "url": "https://easykol.com"
+  },
+  "homepage": "https://easykol.com/skills",
+  "license": "MIT"
+}

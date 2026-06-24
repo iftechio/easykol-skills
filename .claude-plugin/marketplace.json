@@ -1,0 +1,19 @@
+{
+  "name": "easykol",
+  "owner": {
+    "name": "EasyKOL",
+    "url": "https://easykol.com/skills"
+  },
+  "metadata": {
+    "version": "0.1.0",
+    "pluginRoot": "./plugins",
+    "description": "EasyKOL KOL discovery, analysis, and outreach skill — supports YouTube / TikTok / Instagram"
+  },
+  "plugins": [
+    {
+      "name": "easykol",
+      "version": "0.1.0",
+      "source": "./plugins/easykol"
+    }
+  ]
+}

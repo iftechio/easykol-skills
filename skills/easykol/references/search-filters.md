@@ -1,28 +1,45 @@
 # Search Filters
 
-Reference for `easykol kol search` and `easykol kol search-filter`. Always confirm
-exact flag names with `easykol schema kol search`; this file documents intent.
+Parameters for `easykol parse`, `easykol more-words`, and `easykol search`. Confirm
+the live set with `easykol schema <cmd>`.
 
-## Core filters
+## Required (parse / more-words / search)
 
-| Filter        | Example                          | Notes                                  |
-|---------------|----------------------------------|----------------------------------------|
-| `--platform`  | `youtube` / `tiktok` / `instagram` | Required. One platform per search.   |
-| `--niche`     | `tech`, `beauty`, `gaming`       | Free-text tag(s); comma-separated.     |
-| `--followers` | `100000-500000`                  | Follower / subscriber range.           |
-| `--region`    | `US`, `JP`, `SEA`                | ISO country code or region group.      |
-| `--language`  | `en`, `ja`, `zh`                 | Content language.                      |
-| `--limit`     | `50`                             | Max results (each returned creator costs quota). |
+| Flag           | Values                          | Notes                                  |
+|----------------|---------------------------------|----------------------------------------|
+| `--sentence`   | free text (≤ 500 chars)         | Natural-language description.           |
+| `--platform`   | `TIKTOK` / `YOUTUBE` / `INSTAGRAM` | One platform per call.               |
 
-## Narrowing with `search-filter`
+## Shared filters (all three commands)
 
-`easykol kol search-filter` applies post-filters to an existing result set, e.g.:
+| Flag                 | Example      | Notes                                       |
+|----------------------|--------------|---------------------------------------------|
+| `--regions`          | `US,GB`      | Comma-separated ISO Alpha-2 country codes.  |
+| `--languages`        | `en,zh`      | Comma-separated BCP-47 language codes.       |
+| `--min-subscribers`  | `100000`     | Min follower / subscriber count.            |
+| `--max-subscribers`  | `500000`     | Max follower / subscriber count.            |
+| `--avg-min`          | `1000`       | Min avg views (TT/YT) or avg likes (IG).    |
+| `--avg-max`          | `100000`     | Max avg views (TT/YT) or avg likes (IG).    |
 
-- de-duplicate creators already in a list / campaign,
-- drop creators below an engagement-rate threshold,
-- keep only creators with visible contact info.
+## `more-words` only
+
+| Flag        | Example                  | Notes                                    |
+|-------------|--------------------------|------------------------------------------|
+| `--exclude` | `tech review,unboxing`   | Keywords already shown; AI avoids them.  |
+
+## `search` only
+
+| Flag            | Example                     | Notes                                          |
+|-----------------|-----------------------------|------------------------------------------------|
+| `--limit`       | `20`                        | 1–50, default 20. Results, not quota multiplier.|
+| `--tags`        | `tech reviewer,gadgets`     | Confirmed canonical tags from `parse`.         |
+| `--keywords`    | `tech review,gadget review` | Confirmed keywords from `parse`/`more-words`.  |
+| `--has-contact` | (flag)                      | Only creators with contact info.               |
+| `--gender`      | `male` / `female`           | Gender filter.                                 |
 
 ## Tips
 
-- Keep `--limit` tight first; every returned creator consumes quota.
-- For "creators like X", prefer `easykol kol lookalikes` over guessing niche tags.
+- Always run `parse` first (free) and pass the user-approved `--tags` / `--keywords`
+  into `search` so results match what the user saw.
+- `parse` returns per-tag / per-keyword creator counts and an `estimatedTotal` — use
+  them to set expectations before spending quota.

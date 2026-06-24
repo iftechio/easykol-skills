@@ -36,9 +36,10 @@ easykol schema --all   # verify the command tree
 ## Log in & verify
 
 ```bash
-easykol login    # opens the browser, reuses your EasyKOL session
-easykol doctor   # checks config
-easykol quota    # shows remaining credits
+# v0.1.0 uses a key + email pair (no browser login yet)
+printf '%s' "<API_KEY>" | easykol auth --key-stdin --email you@example.com
+easykol doctor   # checks config + connectivity
+easykol quota    # remaining credits (backend endpoint pending)
 ```
 
 ## Repository layout
@@ -48,13 +49,16 @@ easykol quota    # shows remaining credits
 plugins/easykol/                  # plugin package (plugin.json + skill symlink)
 skills/easykol/SKILL.md           # the skill the agent reads
 skills/easykol/references/        # detailed parameter / quota / error references
+cli/                              # @easykol/cli — the CLI the skill drives
 evals/                            # eval suite (TBD)
 ```
 
 ## Status
 
-Early scaffold (v0.1.0). The CLI (`@easykol/cli`) and backend `/api/skills/` routes
-are in progress; see the EasyKOL skills roadmap.
+v0.1.0 — core discovery loop. The CLI (`cli/`, `@easykol/cli`) wraps the backend's
+existing `/external/v1/intelligent-search` endpoints (`parse` / `more-words` / `search`).
+Auth is `ek-api-key` + `ek-api-email`. Profile / lookalikes / contacts commands and a
+`quota` endpoint are on the roadmap — see `skills/easykol/SKILL.md`.
 
 ## License
 

@@ -1,23 +1,27 @@
 # Quota Heuristics
 
-Confirm live pricing with `easykol pricing`. This table is the default model.
+EasyKOL bills against your membership quota (the same credits the web app uses). Only
+the **search** consumes quota in v0.1.0; previewing is free.
 
-| Operation                  | Credits | Notes                                  |
-|----------------------------|---------|----------------------------------------|
-| Search — per creator returned | 1    | Only returned rows are charged, not the total match count. |
-| Profile (basic)            | 1       | Cheap; safe to call freely.            |
-| Audience demographics      | 5       | Heavier dataset.                       |
-| Contact info               | 10      | Most expensive — **confirm first**.    |
-| Lookalikes — per creator   | 1       | Same as search.                        |
+| Command       | Cost     | Notes                                              |
+|---------------|----------|----------------------------------------------------|
+| `doctor`      | free     | Local + connectivity check.                        |
+| `auth`        | free     | Saves key + email.                                 |
+| `quota`       | free     | Backend endpoint pending — reports `available:false` until deployed. |
+| `parse`       | **free** | Preview: tags + keywords + estimated total.        |
+| `more-words`  | **free** | More keyword suggestions.                          |
+| `search`      | 1 quota  | One charge per successful search call.             |
 
-## Free tier
+## Rules for the agent
 
-New users get **100 free credits** on signup.
-
-## Budgeting rules for the agent
-
-- Estimate cost before bulk calls: `limit × per-creator cost`. If it would consume a
-  large share of remaining quota, confirm with the user first.
-- Read the `quota` block on every response; warn when `remaining` is low.
-- On exit code `3` (quota insufficient), stop, report, and share `action.url` only if
+- Preview with `parse` (free) and confirm with the user **before** calling `search`.
+- A search that returns **zero results is not charged** (backend only bills successful,
+  non-empty responses).
+- On `exit code 3` (quota insufficient), stop, report, and share `action.url` only if
   the CLI returned one.
+
+## Roadmap costs (not yet in the CLI)
+
+When profile / lookalikes / contacts land, expect heavier operations (e.g. contact
+extraction) to cost more per call. Always check `easykol schema <cmd>` and the returned
+`action` hint for the authoritative cost.

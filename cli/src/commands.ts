@@ -200,7 +200,7 @@ export const API_COMMANDS: CommandDef[] = [
   {
     name: 'search',
     summary: 'Run the KOL search and return matching creators (consumes quota)',
-    billing: '1 quota',
+    billing: 'N quota (N = results returned; 0 = free)',
     options: [
       { flags: '--sentence <text>', description: 'natural-language search description (required)' },
       { flags: '--platform <p>', description: 'TIKTOK | YOUTUBE | INSTAGRAM (required)' },

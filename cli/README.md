@@ -39,34 +39,34 @@ easykol doctor
 easykol quota
 ```
 
-### 4. 搜索创作者（两步流程）
+### 4. 搜索创作者
 
-**第一步：预览**（消耗 1 配额）
-
-```bash
-easykol parse --sentence "美妆护肤类 Instagram 博主，粉丝 10 万以上" --platform INSTAGRAM
-```
-
-返回匹配的 canonical 标签、关键词和预估结果数，让你确认搜索参数。
-
-**第二步：执行搜索**（按返回博主数扣配额）
+直接搜索（推荐）。`search` 内部会自动完成 parse / 选词，无需先调 `parse`：
 
 ```bash
 easykol search \
-  --sentence "美妆护肤类 Instagram 博主" \
+  --sentence "美妆护肤类 Instagram 博主，粉丝 10 万以上" \
   --platform INSTAGRAM \
+  --regions US \
   --min-subscribers 100000 \
+  --avg-min 0 \
   --limit 20
+```
+
+可选：调试或需要预览标签时，可先 `parse`（免费）再 `search`：
+
+```bash
+easykol parse --sentence "美妆护肤类 Instagram 博主" --platform INSTAGRAM --regions US
 ```
 
 ## 配额说明
 
 | 操作 | 扣费规则 |
 |------|----------|
-| `parse` 解析搜索意图 | 每次 **1 配额** |
-| `search` 执行搜索 | 返回 N 个博主扣 **N 配额**，0 结果不扣 |
-| `quota` 查询剩余配额 | 每次 **1 配额** |
+| `search` 执行搜索 | 返回 N 个博主扣 **N 配额**，**0 结果不扣** |
+| `parse` 解析搜索意图 | **免费** |
 | `more-words` 扩展关键词 | **免费** |
+| `quota` 查询剩余配额 | **免费** |
 | `doctor` / `auth` / `schema` | **免费** |
 
 配额不足时命令以退出码 `3` 退出，可前往 [app.easykol.com/settings/quotaQuery](https://app.easykol.com/settings/quotaQuery) 查看或购买配额。
@@ -77,10 +77,10 @@ easykol search \
 |------|------|------|
 | `doctor` | 免费 | 检查 CLI 版本、配置和 API 连通性 |
 | `auth` | 免费 | 保存 API Key 和邮箱 |
-| `quota` | 1 | 查看剩余配额 |
-| `parse` | 1 | 预览搜索：标签 + 关键词 + 预估数量 |
+| `quota` | 免费 | 查看剩余配额 |
+| `parse` | 免费 | 预览搜索：标签 + 关键词 + 预估数量（调试用） |
 | `more-words` | 免费 | 扩展更多关键词（排除已展示的） |
-| `search` | 返回数量 | 执行搜索，返回匹配创作者列表 |
+| `search` | 返回数量 | 执行搜索，返回 N 个扣 N 配额，0 结果不扣 |
 | `schema [cmd]` | 免费 | 查看命令参数（用于 AI Agent 集成） |
 | `exit-codes` | 免费 | 查看所有退出码含义 |
 
@@ -143,10 +143,11 @@ easykol search \
   --has-contact \
   --limit 20
 
-# 先预览再搜索
-easykol parse --sentence "skincare influencers" --platform INSTAGRAM
+# 先预览再搜索（可选，调试用）
+easykol parse --sentence "skincare influencers" --platform INSTAGRAM --regions US
 # 确认标签后执行
 easykol search --sentence "skincare influencers" --platform INSTAGRAM \
+  --regions US --min-subscribers 10000 --avg-min 0 \
   --tags "护肤/Skincare,美妆博主/Beauty Influencer"
 ```
 

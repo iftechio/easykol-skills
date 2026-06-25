@@ -126,11 +126,11 @@ If `hasApiKey: false`, ask the user for their API key and email, then:
 printf '%s' "<KEY>" | easykol auth --key-stdin --email <email>
 ```
 
-Check quota only if the user asks, or if a search returns exit code 3.
-
 ## Quota & Errors
 
-- **Quota**: `easykol quota` — check if user asks. Search costs N quota (N = results returned).
+- **Free commands**: `doctor`, `auth`, `quota`, `parse`, `more-words`, `schema`, `exit-codes`.
+- **Search**: costs **N quota** where N = number of creators returned; **0 results = free**.
+- **`easykol quota`**: use when the user asks, or after exit code 3.
 - **Exit code 3** (quota exhausted): stop, tell the user, share `action.url` if present.
 - **Exit code 6** (bad params): re-check your inferred parameters and retry once.
 - **Exit code 5** (network): retry once, then report.

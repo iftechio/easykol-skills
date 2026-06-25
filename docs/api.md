@@ -57,7 +57,7 @@ All endpoints return the same envelope:
 
 Returns the current account's quota usage. Use this before running searches to confirm you have sufficient credits.
 
-**Quota cost:** 1 per call  
+**Quota cost:** free  
 **Rate limit:** 120 req/min
 
 **Request:** no body
@@ -96,7 +96,7 @@ Parses a natural-language description into canonical tags and keywords, with per
 
 > **Note:** `/intelligent-search` runs this step automatically. Call `/parse` directly only when you need to inspect or override the intermediate tags/keywords.
 
-**Quota cost:** 1 per call  
+**Quota cost:** free  
 **Rate limit:** 30 req/min
 
 **Request body:**

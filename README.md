@@ -39,7 +39,7 @@ easykol schema --all   # verify the command tree
 # v0.1.0 uses a key + email pair (no browser login yet)
 printf '%s' "<API_KEY>" | easykol auth --key-stdin --email you@example.com
 easykol doctor   # checks config + connectivity
-easykol quota    # remaining credits (backend endpoint pending)
+easykol quota    # remaining credits
 ```
 
 ## Repository layout
@@ -57,8 +57,8 @@ evals/                            # eval suite (TBD)
 
 v0.1.0 — core discovery loop. The CLI (`cli/`, `@easykol/cli`) wraps the backend's
 existing `/external/v1/intelligent-search` endpoints (`parse` / `more-words` / `search`).
-Auth is `ek-api-key` + `ek-api-email`. Profile / lookalikes / contacts commands and a
-`quota` endpoint are on the roadmap — see `skills/easykol/SKILL.md`.
+Auth is `ek-api-key` + `ek-api-email`. Profile / lookalikes / contacts commands are on
+the roadmap — see `skills/easykol/SKILL.md`.
 
 ## License
 

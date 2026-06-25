@@ -5,7 +5,7 @@ EasyKOL 的命令行客户端，用自然语言在 YouTube、TikTok、Instagram 
 ## 前置条件
 
 - Node.js 18+
-- EasyKOL API Key（联系 EasyKOL 团队获取）
+- EasyKOL API Key（登录 [app.easykol.com/settings/quotaQuery](https://app.easykol.com/settings/quotaQuery) 生成）
 
 ## 安装
 
@@ -41,7 +41,7 @@ easykol quota
 
 ### 4. 搜索创作者（两步流程）
 
-**第一步：免费预览**（不消耗配额）
+**第一步：预览**（消耗 1 配额）
 
 ```bash
 easykol parse --sentence "美妆护肤类 Instagram 博主，粉丝 10 万以上" --platform INSTAGRAM
@@ -49,7 +49,7 @@ easykol parse --sentence "美妆护肤类 Instagram 博主，粉丝 10 万以上
 
 返回匹配的 canonical 标签、关键词和预估结果数，让你确认搜索参数。
 
-**第二步：执行搜索**（消耗 1 配额）
+**第二步：执行搜索**（按返回博主数扣配额）
 
 ```bash
 easykol search \
@@ -59,16 +59,28 @@ easykol search \
   --limit 20
 ```
 
+## 配额说明
+
+| 操作 | 扣费规则 |
+|------|----------|
+| `parse` 解析搜索意图 | 每次 **1 配额** |
+| `search` 执行搜索 | 返回 N 个博主扣 **N 配额**，0 结果不扣 |
+| `quota` 查询剩余配额 | 每次 **1 配额** |
+| `more-words` 扩展关键词 | **免费** |
+| `doctor` / `auth` / `schema` | **免费** |
+
+配额不足时命令以退出码 `3` 退出，可前往 [app.easykol.com/settings/quotaQuery](https://app.easykol.com/settings/quotaQuery) 查看或购买配额。
+
 ## 命令列表
 
 | 命令 | 配额 | 说明 |
 |------|------|------|
 | `doctor` | 免费 | 检查 CLI 版本、配置和 API 连通性 |
 | `auth` | 免费 | 保存 API Key 和邮箱 |
-| `quota` | 免费 | 查看剩余配额 |
-| `parse` | 免费 | 预览搜索：标签 + 关键词 + 预估数量 |
+| `quota` | 1 | 查看剩余配额 |
+| `parse` | 1 | 预览搜索：标签 + 关键词 + 预估数量 |
 | `more-words` | 免费 | 扩展更多关键词（排除已展示的） |
-| `search` | 1 配额 | 执行搜索，返回匹配创作者列表 |
+| `search` | 返回数量 | 执行搜索，返回匹配创作者列表 |
 | `schema [cmd]` | 免费 | 查看命令参数（用于 AI Agent 集成） |
 | `exit-codes` | 免费 | 查看所有退出码含义 |
 

@@ -14,7 +14,7 @@ export const EXIT = {
   RATELIMIT: 7,
 } as const
 
-export const DEFAULT_API_BASE = 'https://easykol.com'
+export const DEFAULT_API_BASE = 'https://app.easykol.com'
 
 const CONFIG_DIR = join(homedir(), '.easykol')
 export const CONFIG_PATH = join(CONFIG_DIR, 'config.json')

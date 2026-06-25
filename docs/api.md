@@ -207,14 +207,12 @@ Executes the KOL search and returns a list of matching creators.
 {
   "sentence": "skincare creators on Instagram",
   "platform": "INSTAGRAM",
-  "limit": 20,
-  "canonicalTags": ["Skincare", "Beauty Influencer"],
-  "keywords": ["skincare routine", "glass skin"],
   "regions": ["US", "GB"],
-  "languages": ["en"],
   "minSubscribers": 100000,
-  "maxSubscribers": 1000000,
   "avgMin": 1000,
+  "limit": 20,
+  "languages": ["en"],
+  "maxSubscribers": 1000000,
   "avgMax": 50000,
   "hasContactInfo": true,
   "gender": "female",
@@ -226,14 +224,14 @@ Executes the KOL search and returns a list of matching creators.
 |-------|------|----------|-------------|
 | sentence | string | ✅ | Natural-language description, 1–500 chars |
 | platform | string | ✅ | `TIKTOK` / `YOUTUBE` / `INSTAGRAM` |
+| regions | string[] | ✅ | ISO Alpha-2 country codes, at least one required, e.g. `["US","GB"]` |
+| minSubscribers | number | ✅ | Minimum follower count |
+| avgMin | number | ✅ | Min avg views (TikTok/YouTube) or avg likes (Instagram) |
 | limit | integer | — | Number of results, 1–50, default 20 |
 | canonicalTags | string[] | — | Tag names from `/parse` response — improves precision |
 | keywords | string[] | — | Keywords from `/parse` or `/more-words` — improves precision |
-| regions | string[] | — | ISO Alpha-2 country codes |
 | languages | string[] | — | BCP-47 language codes |
-| minSubscribers | number | — | Minimum follower count |
 | maxSubscribers | number | — | Maximum follower count |
-| avgMin | number | — | Min avg views (TikTok/YouTube) or avg likes (Instagram) |
 | avgMax | number | — | Max avg views (TikTok/YouTube) or avg likes (Instagram) |
 | hasContactInfo | boolean | — | `true` = only return creators with a contact email |
 | gender | string | — | `male` / `female` |

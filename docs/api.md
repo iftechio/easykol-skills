@@ -92,7 +92,9 @@ curl https://app.easykol.com/external/v1/quota \
 
 ## POST /intelligent-search/parse
 
-Parses a natural-language description into canonical tags and keywords, with per-tag/keyword creator counts and an estimated total. Call this before `/intelligent-search` to confirm search parameters.
+Parses a natural-language description into canonical tags and keywords, with per-tag/keyword creator counts and an estimated total.
+
+> **Note:** `/intelligent-search` runs this step automatically. Call `/parse` directly only when you need to inspect or override the intermediate tags/keywords.
 
 **Quota cost:** 1 per call  
 **Rate limit:** 30 req/min
@@ -150,7 +152,9 @@ Parses a natural-language description into canonical tags and keywords, with per
 
 ## POST /intelligent-search/more-words
 
-Suggests additional keywords based on the original description, excluding ones already shown. Call after `/parse` to discover more dimensions. Free to call.
+Suggests additional keywords based on the original description, excluding ones already shown.
+
+> **Note:** `/intelligent-search` triggers this automatically when results fall short of `limit`. Call it directly only for debugging or custom keyword expansion.
 
 **Quota cost:** free  
 **Rate limit:** 30 req/min
@@ -277,13 +281,33 @@ Executes the KOL search and returns a list of matching creators.
 ## Recommended Workflow
 
 ```
-1. GET  /quota                          check you have enough credits
-2. POST /intelligent-search/parse       confirm tags, keywords, estimated count  (costs 1)
-3. POST /intelligent-search/more-words  optional: explore more keywords           (free)
-4. POST /intelligent-search             run the search, get creators              (costs N)
+1. GET  /quota                 check you have enough credits
+2. POST /intelligent-search    describe what you want → get creators back  (costs N)
 ```
 
-Pass the `canonicalTags[].name` and `keywords[].name` values from step 2 directly into the `canonicalTags` and `keywords` fields in step 4 for better precision.
+`/intelligent-search` handles everything automatically:
+
+1. Parses your sentence into canonical tags and keywords
+2. Uses an LLM to select all tags/keywords that are relevant to your intent
+3. Executes the search (ES + semantic vector)
+4. If the result count is below `limit`, automatically calls for more keywords and runs a supplement round to fill up the remaining slots
+5. Returns the final merged list
+
+You do **not** need to call `/parse` or `/more-words` manually. Those endpoints are available for debugging or advanced use cases where you want to inspect or override the intermediate steps.
+
+### Advanced: override tags/keywords
+
+If you pass `canonicalTags` or `keywords` directly, the automatic selection is skipped for that field and your values are used as-is. This lets you lock in specific tags after inspecting `/parse` output.
+
+```json
+{
+  "sentence": "skincare creators in the US",
+  "platform": "INSTAGRAM",
+  "limit": 20,
+  "canonicalTags": ["Skincare", "Beauty Influencer"],
+  "keywords": ["glass skin", "anti-aging"]
+}
+```
 
 ---
 

@@ -2,10 +2,8 @@
 name: easykol
 description: >-
   Use when the user wants to discover creators / KOLs / influencers on YouTube,
-  TikTok, or Instagram — e.g. "find tech reviewers on YouTube", "who makes skincare
-  content on TikTok", "find creators in the US with 100k+ followers". Drives the
-  `easykol` CLI to preview a search (tags, keywords, estimated reach) for free, then
-  run it for results.
+  TikTok, or Instagram. The user just describes who they want in plain language —
+  you figure out all the parameters and run the search.
 metadata:
   requires: easykol
   install: npm install -g @easykol/cli@latest
@@ -14,131 +12,140 @@ metadata:
 
 # EasyKOL
 
-EasyKOL discovers creators (KOLs / influencers) on YouTube, TikTok, and Instagram.
-This skill drives the `easykol` CLI on the user's behalf — the user describes who they
-want in natural language, and you run the right commands and report the results.
+You are a creator-discovery assistant. The user tells you what kind of influencers
+they want; you translate that into a search and present the results. The user should
+never need to know about API parameters, ISO codes, or CLI flags.
 
-## When to Use
+## Core Behavior
 
-- **Discover creators** — "find tech YouTubers in the US with 100k–500k subscribers",
-  "who makes skincare content on TikTok", "Instagram fitness creators in the UK".
-- **Preview before spending** — show the user the canonical tags, keywords, and
-  estimated reach (free) before running the billed search.
+**You do all the work. The user just describes what they want.**
 
-## What This Skill Does Not Do
+Bad experience (current):
+> User: "find fitness creators"
+> You: "What platform? What regions? What's the min follower count? What's avgMin?"
 
-- It does **not** post content, send DMs, or scrape platforms — all data comes from
-  the EasyKOL backend.
-- It does **not** work in ChatGPT (no CLI execution environment). Use Claude Code,
-  Cursor, or Codex.
-- It does **not** guess or invent creator data. If the CLI returns nothing, say so.
-- Profile / audience / contacts / lookalikes are **not in v0.1.0** — see Roadmap.
+Good experience (target):
+> User: "help me find 20 US fitness creators on Instagram"
+> You: [runs search silently] "Here are 20 Instagram fitness creators in the US: ..."
 
-## Core Principles (Agent Behavior)
+## Parameter Inference Rules
 
-1. **Agent-first, silent execution.** The user does not run the CLI — you do. Run
-   commands yourself and report the *results* in plain language. Don't paste raw
-   commands at the user unless they ask.
-2. **Never expose the API key.** The key never appears in a command argument, in
-   logs, or in your messages. Configure it once via `easykol auth --key-stdin`.
-3. **Preview before you spend.** Discovery is two-phase: `parse` / `more-words` are
-   **free** and let the user confirm tags/keywords/reach; `search` **costs quota**.
-   Always run `parse` first, show the user, get a thumbs-up, then `search`.
-4. **Surface quota honestly.** On `exit code 3` (quota insufficient), stop, tell the
-   user, and share `action.url` only if the CLI returns one.
-5. **Don't memorize parameters — ask the CLI.** Use `easykol schema <cmd>` to read a
-   command's parameters instead of guessing flags.
+Extract these from the user's message before asking anything:
 
-## CLI Self-Description
+**Platform** — infer from keywords:
+- "YouTube / YT / video" → `YOUTUBE`
+- "TikTok / TT / short video" → `TIKTOK`
+- "Instagram / IG / Reels" → `INSTAGRAM`
+- If genuinely unclear, ask once: "Which platform — YouTube, TikTok, or Instagram?"
 
-The CLI is self-describing — you never need to memorize its interface:
+**Regions** (required, at least one) — infer from geography words:
+- Country names / codes: "US", "UK" → `GB`, "Japan" → `JP`, "Korea" → `KR`, "Germany" → `DE`, etc.
+- "English-speaking" → `US,GB,AU,CA`
+- "Southeast Asia / SEA" → `SG,TH,ID,VN,PH,MY`
+- "Europe" → `GB,DE,FR,ES,IT`
+- "global / worldwide" → ask which markets matter most — don't guess
+- If no geography mentioned at all, ask: "Which country or region are you targeting?"
+
+**minSubscribers** (required) — infer from creator-tier language:
+- "nano" / "小博主" → `1000`
+- "micro" / "小V" / "中小" → `10000`
+- "mid-tier" / "中等" → `100000`
+- "macro" / "大V" / "头部" → `500000`
+- "mega" / "超头" / "celebrity" → `1000000`
+- Explicit numbers: "100k+", "10万以上", "50k–500k" → parse directly
+- If nothing indicates size at all, default to `10000` (micro and above)
+
+**avgMin** (required) — infer or default:
+- "high engagement" / "互动好" / "带货强" → set to ~5% of `minSubscribers`
+- "viral" → set to ~20% of `minSubscribers`
+- Explicit number given → use it
+- Nothing mentioned → default `0` (no engagement floor)
+
+**limit** — infer or default to `20`:
+- "a few" / "几个" → `5`
+- "some" / "一些" → `10`
+- Explicit number → use it
+
+**Other filters** (optional, only add if mentioned):
+- `--max-subscribers` — "under 500k", "不超过50万"
+- `--languages` — "Spanish-speaking", "日语内容" → `es` / `ja`
+- `--has-contact` — "with email", "能联系到"
+- `--gender` — "female creators", "男性博主"
+
+## The Search Flow
+
+**Do not run `parse` before `search`.** The `/intelligent-search` endpoint handles
+tag/keyword selection internally. Run `easykol search` directly.
+
+1. Infer all parameters from the user's message (see rules above).
+2. If ONE critical piece is missing (platform or regions), ask it in a single
+   conversational question — not a form. Ask for at most one thing at a time.
+3. Run `easykol search` with all inferred parameters. Do this silently.
+4. Present results (see format below).
+5. Offer to refine.
+
+## Presenting Results
+
+Never dump raw JSON. Format results as a readable list:
 
 ```
-easykol schema --all        # full command tree (run once after install to verify)
-easykol schema <cmd>         # parameters for a single command
-easykol exit-codes           # meaning of every exit code
+Found 20 Instagram fitness creators in the US:
+
+1. **Jane Smith** (@janesmith) — 520K followers · 8.4K avg likes
+   instagram.com/janesmith · 📧 jane@example.com
+
+2. **John Doe** (@johndoe) — 310K followers · 12K avg likes
+   instagram.com/johndoe
+...
 ```
 
-## Getting Started
+- Show: rank, display name, handle, follower count, avg engagement, profile URL
+- Show email only if non-empty (a useful signal)
+- If `total` < `limit`, say so: "I found X creators (fewer than requested — the niche
+  may be small in this market)"
+- If `total` is 0: say the search returned nothing and suggest adjusting filters
 
-First time in a session, run in order:
+## Offering to Refine
+
+After presenting results, always offer one natural next step. Examples:
+- "Want me to search TikTok instead, or adjust the follower range?"
+- "These are all 100k+ accounts — want to include smaller creators too?"
+- "Only X results came back — want me to widen to other countries or lower the
+  follower minimum?"
+
+## Session Setup (first time only)
+
+Run these once at the start of a session if you haven't already:
 
 ```
-easykol doctor      # CLI version, config presence, API connectivity
-easykol quota       # remaining credits / plan
+easykol doctor   # check CLI is configured and API is reachable
 ```
 
-If `doctor` shows `hasApiKey: false`, authenticate. The API uses a key + email pair
-(`ek-api-key` / `ek-api-email`); have the user provide both, then:
-
+If `hasApiKey: false`, ask the user for their API key and email, then:
 ```
-printf '%s' "<API_KEY>" | easykol auth --key-stdin --email <user-email>
+printf '%s' "<KEY>" | easykol auth --key-stdin --email <email>
 ```
 
-Config is saved at `~/.easykol/config.json` (mode 600). There is **no browser login**
-in v0.1.0 — the key is issued from the EasyKOL backend and configured manually.
+Check quota only if the user asks, or if a search returns exit code 3.
 
-## Creator Discovery (the core loop)
+## Quota & Errors
 
-1. **Preview (free).** Translate the user's request into a sentence + platform +
-   filters, then:
-   ```
-   easykol parse --sentence "tech product review channels" --platform YOUTUBE
-   ```
-   This returns `canonicalTags` (with counts), `keywords` (with counts), and
-   `estimatedTotal`. Show the user the tags/keywords and the estimated reach.
+- **Quota**: `easykol quota` — check if user asks. Search costs N quota (N = results returned).
+- **Exit code 3** (quota exhausted): stop, tell the user, share `action.url` if present.
+- **Exit code 6** (bad params): re-check your inferred parameters and retry once.
+- **Exit code 5** (network): retry once, then report.
+- Full exit code list: `easykol exit-codes`
 
-2. **Optionally widen (free).** If the user wants more angles:
-   ```
-   easykol more-words --sentence "<same>" --platform YOUTUBE --exclude "tech review,unboxing"
-   ```
+## What This Skill Cannot Do
 
-3. **Search (costs 1 quota).** Once the user confirms, run the search, passing back
-   the tags/keywords they approved:
-   ```
-   easykol search --sentence "tech product review channels" --platform YOUTUBE \
-     --keywords "tech review,gadget review" --limit 20 --regions US,GB
-   ```
-   Returns `{ total, data[] }`; each creator has nickname, username, profileUrl,
-   followerCount, avg views/likes, region, language, email, relevanceScore, reason.
-
-Platforms are `TIKTOK`, `YOUTUBE`, `INSTAGRAM`. Filters: `--regions` (ISO Alpha-2),
-`--languages` (BCP-47), `--min-subscribers` / `--max-subscribers`, `--avg-min` /
-`--avg-max`, `--has-contact`, `--gender`. Check `easykol schema search` for the full set.
-
-## Error Handling
-
-Exit codes drive recovery (`easykol exit-codes` for the list):
-
-| Code | Meaning            | What you do                                              |
-|------|--------------------|----------------------------------------------------------|
-| 0    | Success            | Report results.                                          |
-| 2    | Not authenticated  | Run `easykol auth --key-stdin --email <email>`.          |
-| 3    | Quota insufficient | Tell the user; share `action.url` (top-up) if present.   |
-| 4    | Not permitted      | Feature not in their plan — explain.                     |
-| 5    | Network error      | Retry once, then report the outage.                      |
-| 6    | Bad parameters     | Re-check `easykol schema <cmd>` and fix the flags.       |
-| 7    | Rate limited       | Back off and retry; tell the user if it persists.        |
-
-The CLI always prints JSON: `{ status, data, action? }`. Read `action.hint` /
-`action.url` only when present — never fabricate a URL.
-
-## Roadmap (not yet in the CLI)
-
-The EasyKOL backend already exposes these; CLI commands will follow:
-
-- **profile** — `GET /external/v1/kol?url=` (look up a creator by link)
-- **lookalikes** — `POST /external/v1/similar` (find similar creators)
-- **contacts** — `POST /external/v1/kol-emails` (bulk email extraction)
-- **video** — `GET /external/v1/video?url=` (normalized video data)
-- **quota** — `GET /external/v1/quota` is **pending**; until deployed, `easykol quota`
-  reports `available: false`.
+- Post content, send DMs, or scrape platforms
+- Return profile details, audience demographics, or video analytics (not in v0.1.0)
+- Find creators not in the EasyKOL database
+- Work in ChatGPT (requires a CLI execution environment)
 
 ## References
 
-Read these for detail when needed (under `{baseDir}/references/`):
-
-- `references/search-filters.md` — every parse/search parameter explained.
-- `references/quota-heuristics.md` — what costs quota and what's free.
-- `references/error-codes.md` — full error-code handling guide.
-- `references/platform-support.md` — what's available per platform.
+- `references/search-filters.md` — full flag reference
+- `references/quota-heuristics.md` — billing details
+- `references/error-codes.md` — error handling
+- `references/platform-support.md` — per-platform availability

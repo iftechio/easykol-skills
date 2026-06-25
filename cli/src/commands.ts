@@ -142,17 +142,6 @@ export const API_COMMANDS: CommandDef[] = [
       const base = loadConfig().apiBase || DEFAULT_API_BASE
       const r = await apiCall({ path: '/quota' })
       if (r.networkError) fail(EXIT.NETWORK, `Network error: ${r.networkError}`)
-      if (r.status === 404) {
-        emit(
-          { available: false },
-          {
-            action: {
-              hint: 'Quota endpoint (GET /external/v1/quota) is not deployed on the backend yet — pending.',
-            },
-          },
-        )
-        return
-      }
       if (!r.ok) failHttp(base, r)
       emit(r.json?.data ?? r.json)
     },
@@ -212,6 +201,12 @@ export const API_COMMANDS: CommandDef[] = [
       ...FILTER_OPTIONS,
     ],
     async run(opts) {
+      const regions = parseList(opts.regions)
+      required(regions, '--regions')
+      const minSubscribers = num(opts.minSubscribers)
+      if (minSubscribers === undefined) fail(EXIT.PARAMS, 'Missing required option --min-subscribers')
+      const avgMin = num(opts.avgMin)
+      if (avgMin === undefined) fail(EXIT.PARAMS, 'Missing required option --avg-min')
       const body: Record<string, unknown> = {
         sentence: required<string>(opts.sentence, '--sentence'),
         platform: normPlatform(opts.platform),
@@ -220,7 +215,12 @@ export const API_COMMANDS: CommandDef[] = [
         keywords: parseList(opts.keywords),
         hasContactInfo: opts.hasContact ? true : undefined,
         gender: opts.gender,
-        ...baseFilters(opts),
+        regions,
+        minSubscribers,
+        avgMin,
+        languages: parseList(opts.languages),
+        maxSubscribers: num(opts.maxSubscribers),
+        avgMax: num(opts.avgMax),
       }
       const data = await apiRequest({ method: 'POST', path: '/intelligent-search', body })
       emit(data)

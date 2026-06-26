@@ -162,8 +162,13 @@ is high (>20% warrants caution, >40% is a red flag).
 
 ## 4. Retrieving Emails
 
-Use `easykol emails` when the user wants to bulk-extract contact emails for a list of
-creator URLs. This is async (~60s).
+**Important distinction**: `easykol kol` already returns the creator's visible email
+from the platform profile. Do NOT run `easykol emails` just because the user asks about
+a creator's email or contact info for a single creator — `kol` covers that.
+
+Use `easykol emails` only when the user explicitly wants to **bulk-extract** contact
+emails for a list of creator URLs, or wants an exported Excel file of contacts. This is
+async (~60s).
 
 ```
 easykol emails --tt-urls <url1,url2,...>

@@ -147,6 +147,19 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   {
+    name: 'kol',
+    summary: 'Fetch a creator profile by social-media URL',
+    billing: 'every 5 calls = 1 quota',
+    options: [
+      { flags: '--url <url>', description: 'social media profile URL (required)' },
+    ],
+    async run(opts) {
+      const url = required<string>(opts.url, '--url')
+      const data = await apiRequest({ path: '/kol', query: { url } })
+      emit(data)
+    },
+  },
+  {
     name: 'parse',
     summary: 'Preview a search: canonical tags + keywords + estimated total (no charge)',
     billing: 'free',

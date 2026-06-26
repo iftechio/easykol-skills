@@ -94,7 +94,7 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
       hint: 'Configure your API key and email first',
     })
   }
-  const base = cfg.apiBase || DEFAULT_API_BASE
+  const base = process.env.EASYKOL_API_BASE || cfg.apiBase || DEFAULT_API_BASE
   const qs = opts.query
     ? '?' +
       Object.entries(opts.query)

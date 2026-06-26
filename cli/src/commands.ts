@@ -80,7 +80,8 @@ async function pollTask(
   intervalMs = 3000,
   timeoutMs = 120_000,
 ): Promise<any> {
-  const base = loadConfig().apiBase || DEFAULT_API_BASE
+  const cfg = loadConfig()
+  const base = process.env.EASYKOL_API_BASE || cfg.apiBase || DEFAULT_API_BASE
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const r = await apiCall({ path })
@@ -107,7 +108,7 @@ export const API_COMMANDS: CommandDef[] = [
     options: [],
     async run() {
       const cfg = loadConfig()
-      const base = cfg.apiBase || DEFAULT_API_BASE
+      const base = process.env.EASYKOL_API_BASE || cfg.apiBase || DEFAULT_API_BASE
       const majorNode = Number(process.versions.node.split('.')[0])
       let reachable = false
       try {
@@ -218,6 +219,35 @@ export const API_COMMANDS: CommandDef[] = [
       const url = required<string>(opts.url, '--url')
       const data = await apiRequest({ path: '/kol', query: { url } })
       emit(data)
+    },
+  },
+  {
+    name: 'emails',
+    summary: 'Bulk-extract emails for a list of creator profile URLs (async, ~60s)',
+    billing: '1 quota per 5 URLs (rounded up)',
+    options: [
+      { flags: '--tt-urls <list>', description: 'comma-separated TikTok profile URLs' },
+      { flags: '--yt-urls <list>', description: 'comma-separated YouTube profile URLs' },
+      { flags: '--ins-urls <list>', description: 'comma-separated Instagram profile URLs' },
+      { flags: '--timeout <s>', description: 'poll timeout in seconds (default 180)' },
+    ],
+    async run(opts) {
+      const ttUrls = parseList(opts.ttUrls) ?? []
+      const ytbUrls = parseList(opts.ytUrls) ?? []
+      const insUrls = parseList(opts.insUrls) ?? []
+      if (!ttUrls.length && !ytbUrls.length && !insUrls.length) {
+        fail(EXIT.PARAMS, 'At least one of --tt-urls / --yt-urls / --ins-urls is required')
+      }
+      const task = await apiRequest<{ id: string; taskId?: string }>({
+        method: 'POST',
+        path: '/kol-emails',
+        body: { ttUrls, ytbUrls, insUrls },
+      })
+      const taskId = task.taskId ?? task.id
+      required(taskId, 'taskId from response')
+      const timeoutMs = (num(opts.timeout) ?? 180) * 1000
+      const done = await pollTask(`/kol-emails/${taskId}`, 4000, timeoutMs)
+      emit(done)
     },
   },
   {

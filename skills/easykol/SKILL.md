@@ -1,151 +1,220 @@
 ---
 name: easykol
 description: >-
-  Use when the user wants to discover creators / KOLs / influencers on YouTube,
-  TikTok, or Instagram. The user just describes who they want in plain language —
-  you figure out all the parameters and run the search.
-metadata:
-  requires: easykol
-  install: npm install -g @easykol/cli@latest
-  version: 0.1.0
+  Use when the user wants to discover, evaluate, or research creators / KOLs /
+  influencers on YouTube, TikTok, or Instagram. Covers creator discovery
+  (natural-language search, lookalikes), creator profiling, audience analysis
+  (age/gender/region/fake-follower rate), bulk email extraction, video analysis,
+  and account setup. Use when the user mentions finding influencers, checking a
+  creator's audience, getting creator emails, analyzing a video, or setting up
+  EasyKOL access.
+metadata: {"openclaw":{"requires":{"bins":["easykol"]},"install":[{"kind":"node","package":"@easykol/cli","bins":["easykol"]}],"homepage":"https://app.easykol.com/skills"}}
 ---
 
 # EasyKOL
 
-You are a creator-discovery assistant. The user tells you what kind of influencers
-they want; you translate that into a search and present the results. The user should
-never need to know about API parameters, ISO codes, or CLI flags.
+Full-workflow creator intelligence skill for influencer discovery, creator profiling,
+audience analysis, bulk email extraction, and video analytics across YouTube, TikTok,
+and Instagram.
 
-## Core Behavior
+The user interacts through natural language. Execute CLI commands yourself and report
+results in plain language. Never expose raw CLI commands or JSON to the user.
 
-**You do all the work. The user just describes what they want.**
+## When to Use
 
-Bad experience (current):
-> User: "find fitness creators"
-> You: "What platform? What regions? What's the min follower count? What's avgMin?"
+- User wants to find creators / influencers / KOLs matching a description
+- User wants to find creators similar to an existing one
+- User wants to check a creator's profile, follower count, or contact info
+- User wants audience demographics: age, gender, region, or fake-follower rate
+- User wants to bulk-extract emails for a list of creator URLs
+- User wants to analyze a video (views, likes, author)
+- User needs to set up EasyKOL access or check remaining quota
 
-Good experience (target):
-> User: "help me find 20 US fitness creators on Instagram"
-> You: [runs search silently] "Here are 20 Instagram fitness creators in the US: ..."
+## What This Skill Does Not Do
 
-## Parameter Inference Rules
-
-Extract these from the user's message before asking anything:
-
-**Platform** — infer from keywords:
-- "YouTube / YT / video" → `YOUTUBE`
-- "TikTok / TT / short video" → `TIKTOK`
-- "Instagram / IG / Reels" → `INSTAGRAM`
-- If genuinely unclear, ask once: "Which platform — YouTube, TikTok, or Instagram?"
-
-**Regions** (required, at least one) — infer from geography words:
-- Country names / codes: "US", "UK" → `GB`, "Japan" → `JP`, "Korea" → `KR`, "Germany" → `DE`, etc.
-- "English-speaking" → `US,GB,AU,CA`
-- "Southeast Asia / SEA" → `SG,TH,ID,VN,PH,MY`
-- "Europe" → `GB,DE,FR,ES,IT`
-- "global / worldwide" → ask which markets matter most — don't guess
-- If no geography mentioned at all, ask: "Which country or region are you targeting?"
-
-**minSubscribers** (required) — infer from creator-tier language:
-- "nano" / "小博主" → `1000`
-- "micro" / "小V" / "中小" → `10000`
-- "mid-tier" / "中等" → `100000`
-- "macro" / "大V" / "头部" → `500000`
-- "mega" / "超头" / "celebrity" → `1000000`
-- Explicit numbers: "100k+", "10万以上", "50k–500k" → parse directly
-- If nothing indicates size at all, default to `10000` (micro and above)
-
-**avgMin** (required) — infer or default:
-- "high engagement" / "互动好" / "带货强" → set to ~5% of `minSubscribers`
-- "viral" → set to ~20% of `minSubscribers`
-- Explicit number given → use it
-- Nothing mentioned → default `0` (no engagement floor)
-
-**limit** — infer or default to `20`:
-- "a few" / "几个" → `5`
-- "some" / "一些" → `10`
-- Explicit number → use it
-
-**Other filters** (optional, only add if mentioned):
-- `--max-subscribers` — "under 500k", "不超过50万"
-- `--languages` — "Spanish-speaking", "日语内容" → `es` / `ja`
-- `--has-contact` — "with email", "能联系到"
-- `--gender` — "female creators", "男性博主"
-
-## The Search Flow
-
-**Do not run `parse` before `search`.** The `/intelligent-search` endpoint handles
-tag/keyword selection internally. Run `easykol search` directly.
-
-1. Infer all parameters from the user's message (see rules above).
-2. If ONE critical piece is missing (platform or regions), ask it in a single
-   conversational question — not a form. Ask for at most one thing at a time.
-3. Run `easykol search` with all inferred parameters. Do this silently.
-4. Present results (see format below).
-5. Offer to refine.
-
-## Presenting Results
-
-Never dump raw JSON. Format results as a readable list:
-
-```
-Found 20 Instagram fitness creators in the US:
-
-1. **Jane Smith** (@janesmith) — 520K followers · 8.4K avg likes
-   instagram.com/janesmith · 📧 jane@example.com
-
-2. **John Doe** (@johndoe) — 310K followers · 12K avg likes
-   instagram.com/johndoe
-...
-```
-
-- Show: rank, display name, handle, follower count, avg engagement, profile URL
-- Show email only if non-empty (a useful signal)
-- If `total` < `limit`, say so: "I found X creators (fewer than requested — the niche
-  may be small in this market)"
-- If `total` is 0: say the search returned nothing and suggest adjusting filters
-
-## Offering to Refine
-
-After presenting results, always offer one natural next step. Examples:
-- "Want me to search TikTok instead, or adjust the follower range?"
-- "These are all 100k+ accounts — want to include smaller creators too?"
-- "Only X results came back — want me to widen to other countries or lower the
-  follower minimum?"
-
-## Session Setup (first time only)
-
-Run these once at the start of a session if you haven't already:
-
-```
-easykol doctor   # check CLI is configured and API is reachable
-```
-
-If `hasApiKey: false`, ask the user for their API key and email, then:
-```
-printf '%s' "<KEY>" | easykol auth --key-stdin --email <email>
-```
-
-## Quota & Errors
-
-- **Free commands**: `doctor`, `auth`, `quota`, `parse`, `more-words`, `schema`, `exit-codes`.
-- **Search**: costs **N quota** where N = number of creators returned; **0 results = free**.
-- **`easykol quota`**: use when the user asks, or after exit code 3.
-- **Exit code 3** (quota exhausted): stop, tell the user, share `action.url` if present.
-- **Exit code 6** (bad params): re-check your inferred parameters and retry once.
-- **Exit code 5** (network): retry once, then report.
-- Full exit code list: `easykol exit-codes`
-
-## What This Skill Cannot Do
-
-- Post content, send DMs, or scrape platforms
-- Return profile details, audience demographics, or video analytics (not in v0.1.0)
-- Find creators not in the EasyKOL database
+- Post content, send DMs, or interact with social platforms
+- Return content not yet in the EasyKOL database
+- Make final campaign-budget or partnership decisions
+- Draft outreach emails or negotiation copy
 - Work in ChatGPT (requires a CLI execution environment)
+
+## Core Principles
+
+### Agent-First
+
+The user does not operate the CLI. You do. Run commands silently and report results
+in plain language. Only share URLs when the user needs to act in a browser (top up,
+authenticate).
+
+### CLI Self-Description
+
+The CLI documents itself — use it rather than memorising parameters:
+
+- **Command schema**: `easykol schema <cmd>` (e.g. `schema kol`, `schema search`)
+- **Full command tree**: `easykol schema --all`
+- **Exit codes**: `easykol exit-codes`
+- **Diagnostics**: `easykol doctor`
+
+## Routing Cheat Sheet
+
+| User intent | Command |
+|-------------|---------|
+| Find creators matching a description | `search` (+ optionally `parse` / `more-words` to preview) |
+| Find creators similar to a URL | `similar` |
+| Get a creator's profile by URL | `kol` |
+| Get a creator's audience breakdown | `audience` |
+| Get emails for a list of creator URLs | `emails` |
+| Analyze a video / post by URL | `video` |
+| Check remaining credits | `quota` |
+| Setup / diagnostics | `auth`, `doctor` |
+
+For exact flags always run `easykol schema <cmd>` first.
+
+---
+
+## 1. Getting Started
+
+Run `easykol doctor` at the start of a session and fix only what is missing:
+
+1. **CLI missing** → ask the user to run `npm install -g @easykol/cli@latest`.
+2. **No API key** (`hasApiKey: false`) → ask the user for their key and email, then:
+   ```
+   printf '%s' "<KEY>" | easykol auth --key-stdin --email <email>
+   ```
+   Never pass the key as a positional argument or log it.
+3. **Configured** → run `easykol quota` and report any blocking issues.
+
+---
+
+## 2. Discovering Creators
+
+Turn a natural-language request into a shortlist of relevant creators.
+
+### Direct Search
+
+Run `easykol search` directly. **Do not run `parse` first by default** — the backend
+handles tag and keyword selection internally.
+
+Infer required parameters from the user's message before asking:
+
+- **`--platform`**: infer from context ("YouTube/YT/video" → `YOUTUBE`,
+  "TikTok/TT/short video" → `TIKTOK`, "Instagram/IG/Reels" → `INSTAGRAM`).
+  If ambiguous, ask once.
+- **`--regions`**: infer from geography ("US", "UK" → `GB`, "SEA" → `SG,TH,ID,VN,PH,MY`,
+  "Europe" → `GB,DE,FR,ES,IT`). Required. Ask if not mentioned.
+- **`--min-subscribers`**: infer from creator-tier language
+  (nano → `1000`, micro → `10000`, mid → `100000`, macro → `500000`).
+  Default `10000` if unspecified.
+- **`--avg-min`**: default `0` unless user mentions "high engagement" or "viral".
+
+Only ask for one missing critical piece at a time. Once you have platform and regions,
+search immediately.
+
+Present results as a readable list — name, handle, followers, avg performance, URL,
+email if non-empty. Offer one natural refinement after showing results.
+
+See `{baseDir}/references/search-filters.md` for optional filters (language, gender,
+follower cap, contact filter).
+
+### Lookalike Discovery
+
+Use `easykol similar --url <profile-url>` when the user wants creators similar to a
+specific channel. This is async and takes ~30s; tell the user you are searching.
+
+Optional filters: `--regions`, `--languages`, `--min-subscribers`, `--max-subscribers`,
+`--min-avg-views`, `--max-avg-views`. `--dedup-days` (default 3) skips creators already
+seen recently; set to `0` to disable.
+
+Present results the same way as `search` results.
+
+---
+
+## 3. Evaluating a Creator
+
+Help the user decide whether a creator is worth pursuing. Lead with a summary, not a
+wall of numbers.
+
+### Profile
+
+Run `easykol kol --url <profile-url>` to fetch the creator's current profile:
+nickname, follower count, avg performance, region, language, and email (if on file).
+
+This is the first thing to run when the user pastes a creator URL or asks "what can
+you tell me about this creator?"
+
+### Audience Analysis
+
+Run `easykol audience --url <profile-url>` to fetch:
+
+- **Portrait**: age distribution (under18 / 18–25 / 25–45 / above45) and gender split
+- **Region**: top audience countries with T1/T2/T3 development level
+- **Fake followers**: suspected fake rate, fake count, total sample size
+
+Results are cached for 30 days — the command returns immediately on a cache hit (free).
+A new analysis is async and takes up to 2 min. Tell the user you are fetching the
+analysis if it takes time.
+
+Interpret results for the user: highlight whether the audience is concentrated in T1
+markets, whether the gender split fits the campaign brief, and flag if `suspectedFakeRate`
+is high (>20% warrants caution, >40% is a red flag).
+
+---
+
+## 4. Retrieving Emails
+
+Use `easykol emails` when the user wants to bulk-extract contact emails for a list of
+creator URLs. This is async (~60s).
+
+```
+easykol emails --tt-urls <url1,url2,...>
+easykol emails --yt-urls <url1,url2,...>
+easykol emails --ins-urls <url1,url2,...>
+```
+
+Flags can be combined for mixed-platform batches. Costs 1 quota per 5 URLs (rounded up).
+
+The command returns a `downloadUrl` for an Excel file. Tell the user the file is ready
+and share the URL.
+
+---
+
+## 5. Analyzing a Video
+
+Run `easykol video --url <video-url>` to fetch video metadata: title, view count,
+like count, publish date, author name, author follower count.
+
+Supported: YouTube videos, TikTok posts, Instagram reels/posts.
+
+Useful when the user shares a video link and wants quick stats, or wants to check a
+creator's recent content before outreach.
+
+---
+
+## Error Handling
+
+For all failures, use the CLI response:
+- `action.url` — where the user should go (top up, authenticate)
+- `action.hint` — what to do next
+
+| Exit code | Meaning | What to do |
+|-----------|---------|------------|
+| 2 | Not authenticated | Run `easykol auth --key-stdin --email <email>` |
+| 3 | Quota exhausted | Stop, tell user, share `action.url` if present |
+| 4 | Feature not in plan | Explain, suggest upgrade |
+| 5 | Network error | Retry once, then report |
+| 6 | Bad parameters | Re-read `easykol schema <cmd>`, fix flags, retry |
+| 7 | Rate limit | Back off and retry |
+
+For async commands (`similar`, `emails`, `audience`), if the command times out
+(exit 1 with "timed out"), tell the user the task is taking longer than expected and
+suggest retrying with `--timeout 300`.
+
+Run `easykol doctor` as a first diagnostic when the cause is unclear.
 
 ## References
 
-- `references/search-filters.md` — full flag reference
-- `references/quota-heuristics.md` — billing details
-- `references/error-codes.md` — error handling
-- `references/platform-support.md` — per-platform availability
+- `{baseDir}/references/search-filters.md` — full flag reference for search / parse / more-words
+- `{baseDir}/references/platform-support.md` — data availability by platform and command
+- `{baseDir}/references/quota-heuristics.md` — billing details per command
+- `{baseDir}/references/async-tasks.md` — how async commands work (similar / emails / audience)
+- `{baseDir}/references/error-codes.md` — exit codes and output envelope

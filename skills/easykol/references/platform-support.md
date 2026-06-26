@@ -1,27 +1,57 @@
 # Platform Support
 
-| Capability                        | YouTube | TikTok | Instagram |
-|-----------------------------------|:-------:|:------:|:---------:|
-| `parse` (preview)                 | ✅      | ✅     | ✅        |
-| `more-words`                      | ✅      | ✅     | ✅        |
-| `search`                          | ✅      | ✅     | ✅        |
+Platform values passed to CLI: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per call).
 
-Platform values: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per call).
+## Command Availability by Platform
 
-## Field notes per platform
+| Command | YouTube | TikTok | Instagram |
+|---------|:-------:|:------:|:---------:|
+| `search` | ✅ | ✅ | ✅ |
+| `parse` | ✅ | ✅ | ✅ |
+| `more-words` | ✅ | ✅ | ✅ |
+| `kol` | ✅ | ✅ | ✅ |
+| `similar` | ✅ | ✅ | ✅ |
+| `audience` | ✅ | ✅ | ✅ |
+| `emails` | ✅ | ✅ | ✅ |
+| `video` | ✅ | ✅ | ✅ (posts/reels) |
 
-- **`averagePlayCount`** is populated for YouTube / TikTok; `null` for Instagram.
-- **`averageLikeCount`** is populated for Instagram; `null` for YouTube / TikTok.
-- **`region`** comes from the platform sub-profile; YouTube creators have **no region**
-  (always `null`). `language` is available on all three.
-- **`email`** may be an empty string when no contact is on file.
+## Field Notes by Command
 
-## Not yet exposed via the CLI
+### `search` / `kol` result fields
 
-profile (`/kol`), lookalikes (`/similar`), contacts (`/kol-emails`), and video
-(`/video`) exist on the backend across the same three platforms but are not in the
-v0.1.0 CLI. See the SKILL Roadmap.
+| Field | YouTube | TikTok | Instagram |
+|-------|---------|--------|-----------|
+| `followerCount` | ✅ | ✅ | ✅ |
+| `averagePlayCount` | ✅ (views) | ✅ (views) | `null` |
+| `averageLikeCount` | `null` | `null` | ✅ (likes) |
+| `region` | `null` (not available) | ✅ | ✅ |
+| `language` | ✅ | ✅ | ✅ |
+| `email` | may be empty string | may be empty string | may be empty string |
 
-## Host environments
+> YouTube creators do not have a `region` field — always `null`. Use `language` for
+> language targeting instead.
 
-Claude Code, Cursor, Codex are supported. **ChatGPT is not** (no CLI execution).
+### `audience` result fields
+
+| Field | YouTube | TikTok | Instagram |
+|-------|---------|--------|-----------|
+| Portrait (age/gender) | ✅ | ✅ | ✅ |
+| Region breakdown | ✅ | ✅ | ✅ |
+| Fake-follower rate | ✅ | ✅ | Limited |
+
+> `suspectedFakeRate` may be less reliable for Instagram due to smaller sample sizes.
+
+### `video` supported URL types
+
+| Platform | Supported |
+|----------|-----------|
+| YouTube (`youtube.com/watch?v=...`) | ✅ |
+| TikTok (`tiktok.com/@.../video/...`) | ✅ |
+| Instagram (`instagram.com/p/...`, `/reel/...`) | ✅ |
+| Facebook (`facebook.com/.../videos/...`) | ✅ |
+| Threads | ✅ |
+
+## Host Environments
+
+Claude Code, Cursor, Codex — supported (all have CLI execution).
+**ChatGPT — not supported** (no shell access).

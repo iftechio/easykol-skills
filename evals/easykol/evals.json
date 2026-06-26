@@ -1,0 +1,318 @@
+{
+  "skill_name": "easykol",
+  "evals": [
+    {
+      "id": 1,
+      "category": "discovery",
+      "prompt": "I need to find 20 US fitness creators on YouTube who focus on home workouts. They should have at least 50k subscribers and decent engagement.",
+      "expected_output": "Run search directly with inferred parameters and present a readable shortlist",
+      "files": [],
+      "expectations": [
+        "Infers platform=YOUTUBE, regions=US, min-subscribers=50000",
+        "Runs easykol search directly without asking for clarification",
+        "Presents a readable list (not raw JSON) with name, handle, followers, avg performance",
+        "Does NOT run easykol parse before search"
+      ]
+    },
+    {
+      "id": 2,
+      "category": "discovery",
+      "prompt": "Help me find some influencers for our new skincare brand.",
+      "expected_output": "Request is underspecified — ask for platform and region before searching",
+      "files": [],
+      "expectations": [
+        "Does NOT execute a search before getting clarification",
+        "Asks about platform (YouTube, TikTok, or Instagram)",
+        "Asks about target region or country",
+        "Asks at most one or two things, not a full parameter form"
+      ]
+    },
+    {
+      "id": 3,
+      "category": "discovery",
+      "prompt": "我要找一些做美食的 Instagram 博主，主要投中国大陆市场，粉丝 10 万以上的，帮我找 15 个",
+      "expected_output": "Extract parameters from Chinese input and search directly",
+      "files": [],
+      "expectations": [
+        "Infers platform=INSTAGRAM",
+        "Infers regions=CN",
+        "Infers min-subscribers=100000",
+        "Infers limit=15",
+        "Runs easykol search directly without asking for clarification"
+      ]
+    },
+    {
+      "id": 4,
+      "category": "discovery",
+      "prompt": "Find me TikTok creators similar to this channel: https://www.tiktok.com/@charlidamelio",
+      "expected_output": "Use easykol similar with the provided URL, not a text-based search",
+      "files": [],
+      "expectations": [
+        "Runs easykol similar --url https://www.tiktok.com/@charlidamelio",
+        "Does NOT run easykol search instead",
+        "Tells the user this may take ~30s before starting",
+        "Presents results as a readable shortlist"
+      ]
+    },
+    {
+      "id": 5,
+      "category": "discovery",
+      "prompt": "Find YouTube channels similar to https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g but only in US and UK, at least 50k subscribers.",
+      "expected_output": "Use easykol similar with URL and region/follower filters",
+      "files": [],
+      "expectations": [
+        "Runs easykol similar --url ... --regions US,GB --min-subscribers 50000",
+        "Does NOT run easykol search instead",
+        "Applies the region and follower filters as CLI flags"
+      ]
+    },
+    {
+      "id": 6,
+      "category": "analysis",
+      "prompt": "What can you tell me about this creator? https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
+      "expected_output": "Run easykol kol with the URL and present the profile",
+      "files": [],
+      "expectations": [
+        "Runs easykol kol --url https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
+        "Does NOT run easykol search to find this creator",
+        "Reports nickname, follower count, avg performance, language, and email if available",
+        "Notes that YouTube creators do not have a region field if relevant"
+      ]
+    },
+    {
+      "id": 7,
+      "category": "analysis",
+      "prompt": "I want to know the audience breakdown for this YouTube channel: https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g — especially what countries they're from and the age/gender split.",
+      "expected_output": "Run easykol audience and interpret the results",
+      "files": [],
+      "expectations": [
+        "Runs easykol audience --url https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
+        "Reports age distribution, gender split, and top audience countries",
+        "Includes T1/T2/T3 development level context for regions",
+        "Does NOT run easykol kol or easykol search instead"
+      ]
+    },
+    {
+      "id": 8,
+      "category": "analysis",
+      "prompt": "这个博主的虚假粉丝率高吗？https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
+      "expected_output": "Run easykol audience and interpret the suspectedFakeRate field",
+      "files": [],
+      "expectations": [
+        "Runs easykol audience --url ... to get fakeFollowers data",
+        "Interprets suspectedFakeRate: flags >20% as worth noting, >40% as a red flag",
+        "Does not just dump the number — explains what it means"
+      ]
+    },
+    {
+      "id": 9,
+      "category": "analysis",
+      "prompt": "I found this creator during a search. Can you pull their profile AND check their audience quality? https://www.instagram.com/someinfluencer/",
+      "expected_output": "Run both easykol kol and easykol audience, combine the results",
+      "files": [],
+      "expectations": [
+        "Runs easykol kol --url ... for the profile",
+        "Runs easykol audience --url ... for the audience breakdown",
+        "Presents both sets of results coherently, not as two separate dumps"
+      ]
+    },
+    {
+      "id": 10,
+      "category": "contacts",
+      "prompt": "I have a list of YouTube and TikTok creators I want to contact. Can you get their emails? YouTube: https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g, TikTok: https://www.tiktok.com/@someuser",
+      "expected_output": "Run easykol emails with mixed platform flags and share the download URL",
+      "files": [],
+      "expectations": [
+        "Runs easykol emails --yt-urls <yt_url> --tt-urls <tt_url>",
+        "Tells the user this is async and may take ~60s",
+        "Returns the downloadUrl from the result",
+        "Does NOT run easykol kol for each URL individually instead"
+      ]
+    },
+    {
+      "id": 11,
+      "category": "contacts",
+      "prompt": "批量导出这10个 Instagram 博主的邮箱：https://www.instagram.com/user1/, https://www.instagram.com/user2/, ...",
+      "expected_output": "Run easykol emails --ins-urls with all URLs, report cost and download link",
+      "files": [],
+      "expectations": [
+        "Runs easykol emails --ins-urls <comma-separated-urls>",
+        "Notes that 10 URLs will cost 2 quota (1 per 5, rounded up)",
+        "Reports the downloadUrl when the task completes"
+      ]
+    },
+    {
+      "id": 12,
+      "category": "video",
+      "prompt": "What are the stats on this video? https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "expected_output": "Run easykol video with the URL and present the stats",
+      "files": [],
+      "expectations": [
+        "Runs easykol video --url https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "Reports title, view count, like count, publish date, author name and follower count",
+        "Does NOT run easykol kol or easykol search instead"
+      ]
+    },
+    {
+      "id": 13,
+      "category": "video",
+      "prompt": "分析一下这个 TikTok 视频的数据：https://www.tiktok.com/@someuser/video/12345678",
+      "expected_output": "Run easykol video for the TikTok URL",
+      "files": [],
+      "expectations": [
+        "Runs easykol video --url https://www.tiktok.com/@someuser/video/12345678",
+        "Reports the available stats (views, likes, author info)",
+        "Does NOT claim this URL is unsupported"
+      ]
+    },
+    {
+      "id": 14,
+      "category": "account",
+      "prompt": "I just signed up for EasyKOL and want to get started. My API key is ek_live_abc123def456 and my email is user@example.com.",
+      "expected_output": "Configure the key securely using --key-stdin, never as a visible argument",
+      "files": [],
+      "expectations": [
+        "Uses printf '%s' '<KEY>' | easykol auth --key-stdin --email <email>",
+        "Does NOT pass the key as --key ek_live_abc123... on the command line",
+        "Confirms setup by running easykol doctor afterwards",
+        "Does NOT echo or log the key in output to the user"
+      ]
+    },
+    {
+      "id": 15,
+      "category": "account",
+      "prompt": "How do I get started with EasyKOL? I don't have an account yet.",
+      "expected_output": "Guide through onboarding without exposing CLI commands to the user",
+      "files": [],
+      "expectations": [
+        "Does NOT expose raw CLI commands to the user",
+        "Explains they need an API key from the EasyKOL dashboard",
+        "Offers to configure the CLI once they have the key",
+        "Does not run any CLI commands until auth is available"
+      ]
+    },
+    {
+      "id": 16,
+      "category": "account",
+      "prompt": "My search failed — it said something about quota being exhausted. How do I fix this?",
+      "expected_output": "Run quota silently, explain the situation, share top-up URL from action field",
+      "files": [],
+      "expectations": [
+        "Runs easykol quota itself (does not tell user to run it)",
+        "Reports remaining credits clearly",
+        "Shares action.url from the CLI response if present",
+        "Does NOT explain the error technically (no exit code jargon)"
+      ]
+    },
+    {
+      "id": 17,
+      "category": "routing",
+      "prompt": "I want to see all the details about this creator — followers, content style, emails, and whether their audience is real. URL: https://www.instagram.com/someinfluencer/",
+      "expected_output": "Run kol + audience for profile and audience quality; run emails separately only if user explicitly wants exported contact info",
+      "files": [],
+      "expectations": [
+        "Runs easykol kol --url ... for the profile",
+        "Runs easykol audience --url ... for audience quality (fake followers, region, age/gender)",
+        "Does NOT run easykol emails unless user explicitly asks for exported email addresses",
+        "Treats email from kol profile response as the visible contact signal"
+      ]
+    },
+    {
+      "id": 18,
+      "category": "routing",
+      "prompt": "我想搜一批美妆博主，同时也想知道某个具体 TikTok 账号的受众画像：https://www.tiktok.com/@beautycreator",
+      "expected_output": "Handle both tasks: search for the batch, audience command for the specific URL",
+      "files": [],
+      "expectations": [
+        "Runs easykol search for the batch discovery (asks for region/platform if needed)",
+        "Runs easykol audience --url https://www.tiktok.com/@beautycreator for the specific account",
+        "Does NOT conflate the two tasks — handles them separately"
+      ]
+    },
+    {
+      "id": 19,
+      "category": "should-not-trigger",
+      "prompt": "帮我起草一封给博主的合作邀约邮件，语气专业友好，突出我们产品的卖点。",
+      "expected_output": "Treat as a copywriting task, not an EasyKOL CLI workflow",
+      "files": [],
+      "expectations": [
+        "Does NOT invoke easykol CLI for this request",
+        "Treats the request as copywriting or content generation",
+        "Does not fabricate creator data"
+      ]
+    },
+    {
+      "id": 20,
+      "category": "should-not-trigger",
+      "prompt": "分析一下抖音平台最近的算法变化对内容创作者有什么影响。",
+      "expected_output": "Treat as a market analysis question, not an EasyKOL CLI workflow",
+      "files": [],
+      "expectations": [
+        "Does NOT invoke easykol CLI",
+        "Answers the question from general knowledge or declines if outside knowledge cutoff",
+        "Does not attempt to use search or kol commands as a substitute"
+      ]
+    },
+    {
+      "id": 21,
+      "category": "should-not-trigger",
+      "prompt": "帮我把搜到的这些博主信息批量导入到我们公司的 Salesforce CRM。",
+      "expected_output": "Decline — operating external CRM systems is outside the skill's scope",
+      "files": [],
+      "expectations": [
+        "Does NOT attempt to use easykol CLI for external CRM operations",
+        "Explains that integrating with external CRM is outside the skill's scope",
+        "May suggest manually exporting data from emails command as an alternative"
+      ]
+    },
+    {
+      "id": 22,
+      "category": "discovery",
+      "prompt": "上次搜 YouTube 健身博主的结果太少了，我想放宽条件——把最低粉丝从 50k 降到 20k，语言还是英语，地区还是美国。",
+      "expected_output": "Re-run search with adjusted parameters, not ask for all parameters again",
+      "files": [],
+      "expectations": [
+        "Re-runs easykol search with min-subscribers=20000, keeping regions=US and languages=en",
+        "Does NOT ask the user to repeat platform and other already-stated parameters",
+        "Presents the new results as a fresh shortlist"
+      ]
+    },
+    {
+      "id": 23,
+      "category": "analysis",
+      "prompt": "给我对比分析这两个 YouTube 科技频道，哪个更适合合作？https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g 和 https://www.youtube.com/@mkbhd",
+      "expected_output": "Run kol for both URLs, optionally audience for both, and compare side by side",
+      "files": [],
+      "expectations": [
+        "Runs easykol kol for both URLs",
+        "Optionally runs easykol audience for both to compare audience quality",
+        "Presents a side-by-side comparison rather than two separate reports",
+        "Offers a recommendation based on the data"
+      ]
+    },
+    {
+      "id": 24,
+      "category": "account",
+      "prompt": "How much quota do I have left?",
+      "expected_output": "Run easykol quota and report the result in plain language",
+      "files": [],
+      "expectations": [
+        "Runs easykol quota",
+        "Reports remaining credits, used credits, and daily limit in plain language",
+        "Does not expose the raw JSON"
+      ]
+    },
+    {
+      "id": 25,
+      "category": "discovery",
+      "prompt": "Find me Instagram creators who post about sustainable fashion, based in Germany or France, with 30k–200k followers.",
+      "expected_output": "Run search with all inferred parameters directly",
+      "files": [],
+      "expectations": [
+        "Infers platform=INSTAGRAM, regions=DE,FR, min-subscribers=30000, max-subscribers=200000",
+        "Uses sustainable fashion as the sentence",
+        "Runs search directly without asking for clarification"
+      ]
+    }
+  ]
+}

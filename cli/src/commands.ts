@@ -264,6 +264,30 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   {
+    name: 'audience',
+    summary: 'Fetch audience analysis for a creator: age/gender/region/fake-follower rate (async if not cached)',
+    billing: '5 quota per new analysis; free if cached within 30 days',
+    options: [
+      { flags: '--url <url>', description: 'creator profile URL (required)' },
+      { flags: '--timeout <s>', description: 'poll timeout in seconds (default 120)' },
+    ],
+    async run(opts) {
+      const url = required<string>(opts.url, '--url')
+      const task = await apiRequest<{ taskId: string; status: string; result?: unknown }>({
+        method: 'POST',
+        path: '/audience',
+        body: { url },
+      })
+      if (task.status === 'COMPLETED') {
+        emit(task.result ?? task)
+        return
+      }
+      const timeoutMs = (num(opts.timeout) ?? 120) * 1000
+      const done = await pollTask(`/audience/${task.taskId}`, 5000, timeoutMs)
+      emit(done.result ?? done)
+    },
+  },
+  {
     name: 'parse',
     summary: 'Preview a search: canonical tags + keywords + estimated total (no charge)',
     billing: 'free',

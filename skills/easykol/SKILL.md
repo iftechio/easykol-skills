@@ -150,7 +150,7 @@ Run `easykol audience --url <profile-url>` to fetch:
 - **Region**: top audience countries with T1/T2/T3 development level
 - **Fake followers**: suspected fake rate, fake count, total sample size
 
-Results are cached for 30 days — the command returns immediately on a cache hit (free).
+Results are cached for 30 days — the command returns immediately on a cache hit.
 A new analysis is async and takes up to 2 min. Tell the user you are fetching the
 analysis if it takes time.
 

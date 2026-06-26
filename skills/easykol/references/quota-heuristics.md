@@ -17,7 +17,7 @@ EasyKOL bills against your membership quota (same credits as the web app).
 | `video` | 1 per 5 calls | Accumulates; charged every 5th call |
 | `similar` | **10 quota** | Per call, regardless of result count |
 | `emails` | **1 per 5 URLs** | Rounded up; 1 URL = 1 quota, 6 URLs = 2 quota |
-| `audience` | **5 quota** | Only on cache miss; free if cached within 30 days |
+| `audience` | **5 quota** | Per call regardless of cache hit or miss |
 
 ## Agent Rules
 
@@ -25,7 +25,7 @@ EasyKOL bills against your membership quota (same credits as the web app).
   handles tag/keyword selection internally. Only use `parse` when the user explicitly
   wants to inspect tags, or for debugging.
 - `search` returning **zero results is not charged**.
-- `audience` on a cache hit (result within 30 days) is **free** — run it freely.
+- `audience` costs 5 quota per call — cache hit or miss, the backend charges the same.
 - On **exit code 3** (quota exhausted): stop immediately, tell the user, share
   `action.url` if the CLI returned one.
 - `kol` and `video` use accumulate billing — you may call them a few times before

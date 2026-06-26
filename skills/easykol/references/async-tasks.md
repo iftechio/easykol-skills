@@ -28,8 +28,8 @@ analysis is taking longer than expected and suggest retrying with `--timeout 300
 ## `audience` Cache Behaviour
 
 `audience` checks for any existing result within the past **30 days** before creating
-a new task. On a cache hit the command returns immediately and costs **0 quota**.
-On a miss it creates a new analysis task and costs **5 quota**.
+a new task. On a cache hit the command returns immediately. On a miss it creates a new analysis task.
+Both cost **5 quota**.
 
 You do not need to manage cache state — the backend handles it. Run `audience` freely;
 only the first call for a creator within 30 days incurs cost.

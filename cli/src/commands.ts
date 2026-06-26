@@ -221,6 +221,19 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   {
+    name: 'video',
+    summary: 'Fetch video / post data by URL (YouTube, TikTok, Instagram, Facebook, Threads)',
+    billing: 'every 5 calls = 1 quota',
+    options: [
+      { flags: '--url <url>', description: 'video or post URL (required)' },
+    ],
+    async run(opts) {
+      const url = required<string>(opts.url, '--url')
+      const data = await apiRequest({ path: '/video', query: { url } })
+      emit(data)
+    },
+  },
+  {
     name: 'parse',
     summary: 'Preview a search: canonical tags + keywords + estimated total (no charge)',
     billing: 'free',

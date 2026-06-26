@@ -73,6 +73,30 @@ const FILTER_OPTIONS: OptionDef[] = [
   { flags: '--avg-max <n>', description: 'max avg views (TT/YT) or avg likes (IG)' },
 ]
 
+// ---------- async task poller ----------
+
+async function pollTask(
+  path: string, // e.g. '/similar/task123'
+  intervalMs = 3000,
+  timeoutMs = 120_000,
+): Promise<any> {
+  const base = loadConfig().apiBase || DEFAULT_API_BASE
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const r = await apiCall({ path })
+    if (r.networkError) fail(EXIT.NETWORK, `Network error: ${r.networkError}`)
+    if (!r.ok) failHttp(base, r)
+    const task = r.json?.data ?? r.json
+    const status: string = task?.status ?? ''
+    if (status === 'COMPLETED') return task
+    if (status === 'FAILED' || status === 'CANCELLED') {
+      fail(EXIT.GENERIC, `Task ${status.toLowerCase()}: ${task?.error ?? 'unknown error'}`)
+    }
+    await new Promise((res) => setTimeout(res, intervalMs))
+  }
+  fail(EXIT.GENERIC, `Task timed out after ${timeoutMs / 1000}s`)
+}
+
 // ---------- commands ----------
 
 export const API_COMMANDS: CommandDef[] = [
@@ -144,6 +168,43 @@ export const API_COMMANDS: CommandDef[] = [
       if (r.networkError) fail(EXIT.NETWORK, `Network error: ${r.networkError}`)
       if (!r.ok) failHttp(base, r)
       emit(r.json?.data ?? r.json)
+    },
+  },
+  {
+    name: 'similar',
+    summary: 'Find creators similar to a seed profile URL (async, ~30s)',
+    billing: '10 quota per call',
+    options: [
+      { flags: '--url <url>', description: 'seed creator profile URL (required)' },
+      { flags: '--regions <list>', description: 'comma-separated ISO Alpha-2 country codes, e.g. US,GB' },
+      { flags: '--languages <list>', description: 'comma-separated BCP-47 language codes, e.g. en,zh' },
+      { flags: '--min-subscribers <n>', description: 'minimum follower / subscriber count' },
+      { flags: '--max-subscribers <n>', description: 'maximum follower / subscriber count' },
+      { flags: '--min-avg-views <n>', description: 'min avg views (TT/YT)' },
+      { flags: '--max-avg-views <n>', description: 'max avg views (TT/YT)' },
+      { flags: '--min-avg-likes <n>', description: 'min avg likes (IG only)' },
+      { flags: '--max-avg-likes <n>', description: 'max avg likes (IG only)' },
+      { flags: '--dedup-days <n>', description: 'skip creators seen in past N days (default 3, 0 = off)' },
+      { flags: '--timeout <s>', description: 'poll timeout in seconds (default 120)' },
+    ],
+    async run(opts) {
+      const seedProfileUrl = required<string>(opts.url, '--url')
+      const body: Record<string, unknown> = {
+        seedProfileUrl,
+        dedupDays: num(opts.dedupDays) ?? 3,
+        regions: parseList(opts.regions),
+        languages: parseList(opts.languages),
+        minSubscribers: num(opts.minSubscribers),
+        maxSubscribers: num(opts.maxSubscribers),
+        minVideosAverageViews: num(opts.minAvgViews),
+        maxVideosAverageViews: num(opts.maxAvgViews),
+        minAverageLikeCount: num(opts.minAvgLikes),
+        maxAverageLikeCount: num(opts.maxAvgLikes),
+      }
+      const task = await apiRequest<{ taskId: string }>({ method: 'POST', path: '/similar', body })
+      const timeoutMs = (num(opts.timeout) ?? 120) * 1000
+      const done = await pollTask(`/similar/${task.taskId}`, 3000, timeoutMs)
+      emit(done.result ?? done)
     },
   },
   {

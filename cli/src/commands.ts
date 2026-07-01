@@ -266,7 +266,7 @@ export const API_COMMANDS: CommandDef[] = [
   {
     name: 'audience',
     summary: 'Fetch audience analysis for a creator: age/gender/region/fake-follower rate (async if not cached)',
-    billing: '5 quota per new analysis; free if cached within 30 days',
+    billing: '20 quota per new analysis; free if cached within 30 days',
     options: [
       { flags: '--url <url>', description: 'creator profile URL (required)' },
       { flags: '--timeout <s>', description: 'poll timeout in seconds (default 120)' },

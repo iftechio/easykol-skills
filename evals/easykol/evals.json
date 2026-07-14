@@ -313,6 +313,19 @@
         "Uses sustainable fashion as the sentence",
         "Runs search directly without asking for clarification"
       ]
+    },
+    {
+      "id": 26,
+      "category": "discovery",
+      "prompt": "帮我在韩国找 KOL：AI 工具类博主、职场办公博主、还有 Study with Me 学习博主，Instagram，粉丝 1 万以上。不要加密货币相关的。",
+      "expected_output": "Recognize ≥2 distinct niches — run one search per niche with shared filters, then merge and dedup",
+      "files": [],
+      "expectations": [
+        "Recognizes three distinct niches (AI tools, workplace/career, Study-with-Me) and runs a separate easykol search for each, not one combined sentence",
+        "Applies the same shared filters to every sub-search (platform=INSTAGRAM, regions=KR, min-subscribers=10000)",
+        "Does NOT create a search for the '不要加密货币' exclusion — treats it as a filter, not a niche",
+        "Merges and dedups results by handle / profile URL, presenting them grouped or labelled by niche"
+      ]
     }
   ]
 }

@@ -116,6 +116,27 @@ email if non-empty. Offer one natural refinement after showing results.
 See `{baseDir}/references/search-filters.md` for optional filters (language, gender,
 follower cap, contact filter).
 
+### Multi-Niche Requests
+
+When one request clearly spans **≥2 distinct creator niches** (e.g. "AI creators,
+career/workplace creators, and Study-with-Me creators in Korea"), do **not** cram them
+into a single `--sentence`. A blurry multi-niche description collapses semantic recall —
+you get a shallow, drifting shortlist that under-serves every niche.
+
+Instead run **one `search` per niche**, each with its own focused `--sentence` and the
+**same shared filters** (platform, regions, min-subscribers, avg-min), then merge:
+
+- Split only genuinely different niches. A single niche with several descriptors
+  ("fun, high-energy gaming creators") stays one search.
+- **Exclusion clauses are not niches** — "no crypto", "exclude finance" are filters that
+  apply to every sub-search, never a search of their own.
+- After the sub-searches return, **dedup by handle / profile URL** (the same creator can
+  surface under two niches) and present results grouped by niche, or as one merged list
+  with each creator labelled by the niche that matched.
+- **Quota**: each sub-search bills separately (N credits per N results returned). Divide
+  `--limit` across niches (e.g. 3 niches × `--limit 10` ≈ 30 total) or confirm the
+  intended total with the user before running them.
+
 ### Lookalike Discovery
 
 Use `easykol similar --url <profile-url>` when the user wants creators similar to a

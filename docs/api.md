@@ -309,6 +309,87 @@ If you pass `canonicalTags` or `keywords` directly, the automatic selection is s
 
 ---
 
+## POST /web-search
+
+Async KOL search — one endpoint, three modes: `tag` (tag-direct), `keyword`, `smart` (one-sentence semantic). Returns a `taskId`; poll `GET /web-search/{taskId}` for results. Results are refreshed via RapidAPI (followers, last-published, etc.).
+
+**Quota cost:** charged on submit as `base × batchCount`, refunded by actual result count on completion — **0 results = no charge**. TikTok/YouTube = 1 task point per batch, Instagram = 2.
+**Rate limit:** 10 req/min
+
+**Request body:**
+```json
+{
+  "searchType": "smart",
+  "platform": "YOUTUBE",
+  "sentence": "US fitness YouTubers",
+  "regions": ["US"],
+  "languages": ["en"],
+  "minSubscribers": 10000
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| searchType | string | ✅ | `tag` / `keyword` / `smart` |
+| platform | string | ✅ | `TIKTOK` / `YOUTUBE` / `INSTAGRAM` |
+| canonicalTags | string[] | tag | Required when `searchType=tag`. Tag names from `/intelligent-search/parse` |
+| keywords | string[] | keyword | Required when `searchType=keyword`. AND-combined |
+| sentence | string | smart | Required when `searchType=smart`. 1–500 chars |
+| useVisualScreening | boolean | — | `smart` only: enable AI visual screening (more accurate, slower/costlier). Default `false` |
+| regions | string[] | — | ISO Alpha-2 country codes |
+| languages | string[] | — | BCP-47 language codes |
+| minSubscribers / maxSubscribers | number | — | Follower range |
+| avgMin / avgMax | number | — | Avg views (TikTok/YouTube) or avg likes (Instagram) |
+| hasContactInfo | boolean | — | Only creators with a contact email |
+| gender | string | — | `male` / `female` |
+| lastPublishedDays | number | — | Only creators who posted within N days |
+| batchCount | integer | — | 1–10; more = more results & more cost. Default 1 |
+
+**Response `data`:** `{ "taskId": "cmweb...", "status": "PROCESSING" }`
+
+> The same API key never returns creators it already returned before (auto-dedup, i.e. "next batch").
+
+---
+
+## GET /web-search/{taskId}
+
+Poll a KOL search task. When `status=COMPLETED`, returns `total` and `data`. Polling is free.
+
+**Quota cost:** free
+**Rate limit:** 120 req/min
+
+**Response `data` (completed):**
+```json
+{
+  "taskId": "cmweb...",
+  "status": "COMPLETED",
+  "total": 1,
+  "data": [
+    {
+      "nickname": "Fitness Creator",
+      "username": "fitnesscreator",
+      "profileUrl": "https://www.youtube.com/@fitnesscreator",
+      "followerCount": 250000,
+      "averagePlayCount": 52000,
+      "averageLikeCount": null,
+      "region": "US",
+      "language": "en",
+      "email": "hello@example.com",
+      "relevanceScore": 0.91,
+      "reason": "Channel closely matches fitness training"
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| status | `PENDING` / `PROCESSING` / `COMPLETED` / `FAILED` |
+| total | Number of creators (when completed) |
+| data[] | Same creator shape as `/intelligent-search` |
+
+---
+
 ## Error Handling
 
 | Scenario | HTTP | statusCode | Action |
@@ -328,6 +409,8 @@ If you pass `canonicalTags` or `keywords` directly, the automatic selection is s
 | `POST /intelligent-search` | 10 req/min |
 | `POST /intelligent-search/parse` | 30 req/min |
 | `POST /intelligent-search/more-words` | 30 req/min |
+| `POST /web-search` | 10 req/min |
+| `GET /web-search/{taskId}` | 120 req/min |
 | `GET /quota` | 120 req/min |
 
 Exceeding the limit returns HTTP 429. Implement exponential backoff on the client side.

@@ -55,10 +55,10 @@ evals/                            # eval suite (TBD)
 
 ## Status
 
-v0.1.0 — core discovery loop. The CLI (`cli/`, `@easykol/cli`) wraps the backend's
-existing `/external/v1/intelligent-search` endpoints (`parse` / `more-words` / `search`).
-Auth is `ek-api-key` + `ek-api-email`. Profile / lookalikes / contacts commands are on
-the roadmap — see `skills/easykol/SKILL.md`.
+v0.1.0 — discovery, profile, audience, lookalike, contact, and video commands are
+available. The CLI (`cli/`, `@easykol/cli`) wraps the backend's `/external/v1` endpoints.
+The Skill must preflight hard requirements and must not claim unsupported audience or
+TikTok Shop metrics are verified. Auth is `ek-api-key` + `ek-api-email`.
 
 ## License
 

@@ -92,8 +92,25 @@ Turn a natural-language request into a shortlist of relevant creators.
 
 ### Direct Search
 
-Run `easykol search` directly. **Do not run `parse` first by default** — the backend
-handles tag and keyword selection internally.
+Before running a search, perform a capability preflight. Separate the user's
+requirements into:
+
+- **Verifiable search filters**: platform, creator region, creator language, creator
+  gender, follower range, average performance, and contact-info presence.
+- **Verifiable only per creator**: audience age/gender/region and suspected fake rate
+  via `audience`; visible email via `kol` or bulk `emails`.
+- **Unsupported**: metrics or filters not exposed by the CLI/API, including TikTok
+  Shop fulfilment rate and exact audience age ranges that do not match the returned
+  buckets.
+
+If an unsupported requirement is stated as a hard requirement, do not claim that the
+request is fully completed. Explain the unsupported fields, run only the supported
+part if useful, and label the output as a partial candidate list. Never turn an
+unsupported condition into a sentence keyword and present the result as if it were
+verified.
+
+Run `easykol search` directly after the preflight. **Do not run `parse` first by
+default** — the backend handles tag and keyword selection internally.
 
 Infer required parameters from the user's message before asking:
 
@@ -107,11 +124,24 @@ Infer required parameters from the user's message before asking:
   Default `10000` if unspecified.
 - **`--avg-min`**: default `0` unless user mentions "high engagement" or "viral".
 
-Only ask for one missing critical piece at a time. Once you have platform and regions,
-search immediately.
+Only ask for one missing critical piece at a time. Once platform and regions are known,
+search immediately only if all hard requirements are supported. Otherwise disclose the
+limitation first, then let the supported search proceed when it can still add value.
 
 Present results as a readable list — name, handle, followers, avg performance, URL,
-email if non-empty. Offer one natural refinement after showing results.
+language, region, and email status. Treat `has-contact` as “EasyKOL has a contact
+record”, not proof that the address is public or deliverable. If the user requires
+every result to have an email, count non-empty emails after the search and report the
+actual coverage; do not silently fill or fabricate missing addresses.
+
+For a hard-filter request, run a postcondition check before saying “completed”:
+
+1. Verify every returned row against every supported hard filter.
+2. Count rows that pass all supported filters and separately count unsupported fields.
+3. If any hard condition is unverified, use “partial results” or “候选结果（待复核）”,
+   never “fully matched” or “已完成名单”.
+
+Offer one natural refinement after showing results.
 
 See `{baseDir}/references/search-filters.md` for optional filters (language, gender,
 follower cap, contact filter).
@@ -133,6 +163,10 @@ Instead run **one `search` per niche**, each with its own focused `--sentence` a
 - After the sub-searches return, **dedup by handle / profile URL** (the same creator can
   surface under two niches) and present results grouped by niche, or as one merged list
   with each creator labelled by the niche that matched.
+- Do not call the response “the complete candidate pool” unless the API explicitly
+  provides a complete, paginated dataset and pagination has been exhausted. The search
+  API returns only the current response (maximum 50); `estimatedTotal` from `parse` is
+  an estimate, not a list of candidates.
 - **Quota**: each sub-search bills separately (N credits per N results returned). Divide
   `--limit` across niches (e.g. 3 niches × `--limit 10` ≈ 30 total) or confirm the
   intended total with the user before running them.
@@ -179,6 +213,11 @@ Interpret results for the user: highlight whether the audience is concentrated i
 markets, whether the gender split fits the campaign brief, and flag if `suspectedFakeRate`
 is high (>20% warrants caution, >40% is a red flag).
 
+Do not use audience analysis to claim an exact age range that the result does not
+contain. The standard buckets include `18–25` and `25–45`; they cannot establish
+`25–40 ≥ 60%`. Audience analysis is a per-creator verification step, not a search
+filter, unless the API explicitly supports that filter.
+
 ---
 
 ## 4. Retrieving Emails
@@ -187,9 +226,10 @@ is high (>20% warrants caution, >40% is a red flag).
 from the platform profile. Do NOT run `easykol emails` just because the user asks about
 a creator's email or contact info for a single creator — `kol` covers that.
 
-Use `easykol emails` only when the user explicitly wants to **bulk-extract** contact
-emails for a list of creator URLs, or wants an exported Excel file of contacts. This is
-async (~60s).
+Use `easykol emails` when the user explicitly wants to **bulk-extract** contact emails
+for a list of creator URLs, or wants an exported Excel file of contacts. This is async
+(~60s). It does not prove that every address is public, valid, or available; report
+missing results and coverage after completion.
 
 ```
 easykol emails --tt-urls <url1,url2,...>

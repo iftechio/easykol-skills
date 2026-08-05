@@ -326,6 +326,21 @@
         "Does NOT create a search for the '不要加密货币' exclusion — treats it as a filter, not a niche",
         "Merges and dedups results by handle / profile URL, presenting them grouped or labelled by niche"
       ]
+    },
+    {
+      "id": 27,
+      "category": "verification-integrity",
+      "prompt": "帮我找20个美国 TikTok 带货达人：粉丝5,000–200,000，全部有公开邮箱，英语13人、西班牙语7人，并且美国受众25–40岁占比至少60%，TikTok Shop履约率达标。导出Excel。",
+      "expected_output": "Run only the supported search portion and clearly mark the result as partial; do not claim exact audience-age or TikTok Shop fulfilment requirements are verified",
+      "files": [],
+      "expectations": [
+        "Performs a capability preflight before presenting the result as complete",
+        "Recognizes that exact 25–40 audience share cannot be derived from 25–45 buckets",
+        "Recognizes that TikTok Shop fulfilment rate is unsupported",
+        "Treats has-contact as contact-record presence and verifies actual non-empty email coverage",
+        "Does not call 73 or any estimated total a complete candidate pool",
+        "Labels any workbook or shortlist as partial / pending platform verification"
+      ]
     }
   ]
 }

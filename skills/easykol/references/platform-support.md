@@ -41,6 +41,19 @@ Platform values passed to CLI: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per call).
 
 > `suspectedFakeRate` may be less reliable for Instagram due to smaller sample sizes.
 
+### Important verification limits
+
+- Search filters describe the **creator/account**, not the creator's audience. The
+  `gender` filter means creator gender; it does not mean female audience share.
+- Audience analysis is returned per profile and is not a search filter. The age buckets
+  (`under18`, `18–25`, `25–45`, `above45`) cannot prove an exact `25–40` threshold.
+- There is no TikTok Shop fulfilment-rate field or filter in the CLI/API.
+- `hasContactInfo` means EasyKOL has a contact record. It is not a guarantee that the
+  email is public, current, deliverable, or non-empty in every returned row.
+- Search returns the current response only, with a maximum `limit` of 50. A parse
+  `estimatedTotal` is an estimate and must not be described as a complete candidate
+  pool.
+
 ### `video` supported URL types
 
 | Platform | Supported |

@@ -1,12 +1,12 @@
 import { Command } from 'commander'
 import { API_COMMANDS, describe } from './commands'
-import { emit, EXIT, fail } from './core'
+import { CLI_VERSION, emit, EXIT, fail } from './core'
 
 const program = new Command()
 program
   .name('easykol')
   .description('EasyKOL CLI — KOL discovery over the EasyKOL API (used by the easykol agent skill)')
-  .version('0.1.0')
+  .version(CLI_VERSION)
 
 // API commands (single source of truth in commands.ts)
 for (const cmd of API_COMMANDS) {
@@ -47,6 +47,7 @@ program
       5: 'network error',
       6: 'bad parameters',
       7: 'rate limited',
+      8: 'search session budget exceeded — ask user, then retry with --confirm-spend',
     })
   })
 

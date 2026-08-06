@@ -9,7 +9,7 @@ the live set with `easykol schema <cmd>`.
 |------|---------|-------|
 | `--sentence` | `"fitness creators US"` | Natural-language description, ≤500 chars |
 | `--platform` | `YOUTUBE` | `TIKTOK` / `YOUTUBE` / `INSTAGRAM` — one per call |
-| `--regions` | `US,GB` | Comma-separated ISO Alpha-2 codes; at least one |
+| `--regions` | `US,GB` | Comma-separated ISO Alpha-2 codes; at least one. Prefer one multi-country list over one call per country. |
 | `--min-subscribers` | `10000` | Min follower / subscriber count |
 | `--avg-min` | `0` | Min avg views (TT/YT) or avg likes (IG) |
 

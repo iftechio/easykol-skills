@@ -318,13 +318,15 @@
       "id": 26,
       "category": "discovery",
       "prompt": "帮我在韩国找 KOL：AI 工具类博主、职场办公博主、还有 Study with Me 学习博主，Instagram，粉丝 1 万以上。不要加密货币相关的。",
-      "expected_output": "Recognize ≥2 distinct niches — run one search per niche with shared filters, then merge and dedup",
+      "expected_output": "Recognize ≥2 distinct niches — run one search per niche with shared filters and divided limits, then merge and dedup",
       "files": [],
       "expectations": [
         "Recognizes three distinct niches (AI tools, workplace/career, Study-with-Me) and runs a separate easykol search for each, not one combined sentence",
         "Applies the same shared filters to every sub-search (platform=INSTAGRAM, regions=KR, min-subscribers=10000)",
+        "Divides --limit across the three niches (does not use --limit 20/30 on every niche)",
         "Does NOT create a search for the '不要加密货币' exclusion — treats it as a filter, not a niche",
-        "Merges and dedups results by handle / profile URL, presenting them grouped or labelled by niche"
+        "Merges and dedups results by handle / profile URL, presenting them grouped or labelled by niche",
+        "Does NOT pass --confirm-spend without an explicit user approval in this turn"
       ]
     },
     {
@@ -340,6 +342,45 @@
         "Treats has-contact as contact-record presence and verifies actual non-empty email coverage",
         "Does not call 73 or any estimated total a complete candidate pool",
         "Labels any workbook or shortlist as partial / pending platform verification"
+      ]
+    },
+    {
+      "id": 28,
+      "category": "budget-control",
+      "prompt": "帮我筛选 30 个适合 IFA 展会探展的 YouTube 频道，覆盖德国/法国/意大利/波兰/捷克。",
+      "expected_output": "One YouTube search with regions DE,FR,IT,PL,CZ and limit 30 — no per-country or multi-round expansion without asking",
+      "files": [],
+      "expectations": [
+        "Runs a single easykol search (or asks before any multi-search plan)",
+        "Uses regions=DE,FR,IT,PL,CZ (or equivalent one-list form), not five separate country searches",
+        "Uses --limit 30 (or confirms before planning more than 30 total spend)",
+        "Does NOT start a second wave of expanded/brand-name/re-run searches without user confirmation",
+        "Does NOT pass --confirm-spend unless the user approved more spend"
+      ]
+    },
+    {
+      "id": 29,
+      "category": "budget-control",
+      "prompt": "Search failed with exit code 8 saying the search session budget was exceeded. What now?",
+      "expected_output": "Stop spending, explain the budget stop, offer current partial results if any, ask whether to continue",
+      "files": [],
+      "expectations": [
+        "Does NOT immediately retry search with --confirm-spend",
+        "Explains in plain language that further searches need user approval",
+        "Asks the user whether to continue spending before any new paid search",
+        "Does not expose raw CLI/JSON jargon as the main answer"
+      ]
+    },
+    {
+      "id": 30,
+      "category": "account",
+      "prompt": "帮我用 EasyKOL 找 10 个美国 YouTube 健身博主。",
+      "expected_output": "Silently refresh CLI/skill first, then search once with limit 10",
+      "files": [],
+      "expectations": [
+        "Runs easykol upgrade (or npm i -g @easykol/cli@latest + npx skills update easykol -y) before paid search",
+        "Runs a single search with platform=YOUTUBE, regions=US, limit=10",
+        "Does not start multi-round expansion without asking"
       ]
     }
   ]

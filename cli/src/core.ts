@@ -12,12 +12,28 @@ export const EXIT = {
   NETWORK: 5,
   PARAMS: 6,
   RATELIMIT: 7,
+  /** Local search session budget exceeded — ask the user before continuing. */
+  BUDGET: 8,
 } as const
 
 export const DEFAULT_API_BASE = 'https://app.easykol.com'
 
+/** Keep in sync with package.json version. */
+export const CLI_VERSION = '0.1.1'
+
+/** Default max search quota spendable in one rolling CLI session without --confirm-spend. */
+export const DEFAULT_SEARCH_SESSION_BUDGET = 50
+
 const CONFIG_DIR = join(homedir(), '.easykol')
 export const CONFIG_PATH = join(CONFIG_DIR, 'config.json')
+const SEARCH_SESSION_PATH = join(CONFIG_DIR, 'search-session.json')
+const SEARCH_SESSION_TTL_MS = 2 * 60 * 60 * 1000
+
+interface SearchSessionState {
+  startedAt: number
+  spent: number
+  keyHint?: string
+}
 
 export interface EasykolConfig {
   apiKey?: string
@@ -168,4 +184,71 @@ export function readStdin(): Promise<string> {
     process.stdin.on('data', (c) => (buf += c))
     process.stdin.on('end', () => resolve(buf))
   })
+}
+
+function searchSessionBudget(): number {
+  const raw = process.env.EASYKOL_SEARCH_SESSION_BUDGET
+  if (raw === undefined || raw === '') return DEFAULT_SEARCH_SESSION_BUDGET
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_SEARCH_SESSION_BUDGET
+}
+
+function loadSearchSession(): SearchSessionState {
+  try {
+    if (!existsSync(SEARCH_SESSION_PATH)) return { startedAt: Date.now(), spent: 0 }
+    const state = JSON.parse(readFileSync(SEARCH_SESSION_PATH, 'utf8')) as SearchSessionState
+    if (!state?.startedAt || Date.now() - state.startedAt > SEARCH_SESSION_TTL_MS)
+      return { startedAt: Date.now(), spent: 0 }
+    return { startedAt: state.startedAt, spent: Math.max(0, Number(state.spent) || 0), keyHint: state.keyHint }
+  } catch {
+    return { startedAt: Date.now(), spent: 0 }
+  }
+}
+
+function saveSearchSession(state: SearchSessionState): void {
+  mkdirSync(CONFIG_DIR, { recursive: true })
+  writeFileSync(SEARCH_SESSION_PATH, JSON.stringify(state, null, 2), { mode: 0o600 })
+}
+
+/**
+ * Block a search when this call's planned cost would push the rolling session
+ * spend over the budget, unless the caller passed confirmSpend.
+ * Planned cost uses --limit (worst-case bill for a full result page).
+ */
+export function assertSearchSessionBudget(plannedCost: number, confirmSpend: boolean): void {
+  const budget = searchSessionBudget()
+  const planned = Math.max(0, Math.floor(plannedCost))
+  const session = loadSearchSession()
+  const projected = session.spent + planned
+  if (projected <= budget || confirmSpend) return
+
+  fail(
+    EXIT.BUDGET,
+    `Search session budget exceeded: spent ${session.spent}, this call plans up to ${planned}, budget ${budget}. ` +
+      `Ask the user to approve more spend, then re-run with --confirm-spend. ` +
+      `Override budget via EASYKOL_SEARCH_SESSION_BUDGET.`,
+    {
+      hint: 'Confirm with the user before continuing paid searches',
+    },
+  )
+}
+
+/** Record actual billed search cost after a successful call (N = results returned). */
+export function recordSearchSessionSpend(actualCost: number): void {
+  const cost = Math.max(0, Math.floor(actualCost))
+  if (cost <= 0) return
+  const cfg = loadConfig()
+  const session = loadSearchSession()
+  session.spent += cost
+  session.keyHint = cfg.apiKey ? maskKey(cfg.apiKey) : session.keyHint
+  saveSearchSession(session)
+}
+
+export function countSearchResults(data: unknown): number {
+  if (!data || typeof data !== 'object') return 0
+  const obj = data as { total?: unknown; data?: unknown }
+  if (typeof obj.total === 'number' && Number.isFinite(obj.total)) return Math.max(0, Math.floor(obj.total))
+  if (Array.isArray(obj.data)) return obj.data.length
+  if (Array.isArray(data)) return data.length
+  return 0
 }

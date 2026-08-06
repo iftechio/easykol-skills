@@ -1,6 +1,6 @@
 {
   "name": "@easykol/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "EasyKOL CLI — KOL discovery over the EasyKOL API (used by the easykol agent skill)",
   "bin": {
     "easykol": "dist/index.js"

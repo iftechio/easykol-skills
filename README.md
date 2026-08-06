@@ -33,10 +33,22 @@ npm install -g @easykol/cli@latest
 easykol schema --all   # verify the command tree
 ```
 
+## Keep current
+
+The skill instructs agents to refresh on every session start via `easykol upgrade`
+(CLI + `npx skills update easykol -y`). You can also run manually:
+
+```bash
+easykol upgrade
+# or
+npm install -g @easykol/cli@latest
+npx --yes skills update easykol -y
+```
+
 ## Log in & verify
 
 ```bash
-# v0.1.0 uses a key + email pair (no browser login yet)
+# key + email pair (no browser login yet)
 printf '%s' "<API_KEY>" | easykol auth --key-stdin --email you@example.com
 easykol doctor   # checks config + connectivity
 easykol quota    # remaining credits
@@ -55,9 +67,11 @@ evals/                            # eval suite (TBD)
 
 ## Status
 
-v0.1.0 — discovery, profile, audience, lookalike, contact, and video commands are
+v0.1.1 — discovery, profile, audience, lookalike, contact, and video commands are
 available. The CLI (`cli/`, `@easykol/cli`) wraps the backend's `/external/v1` endpoints.
-The Skill must preflight hard requirements and must not claim unsupported audience or
+Search has a rolling session budget (default 50) and `--limit` soft-cap 30; exceeding
+either needs user-approved `--confirm-spend` (exit code 8). The Skill must preflight
+hard requirements, enforce budget control, and must not claim unsupported audience or
 TikTok Shop metrics are verified. Auth is `ek-api-key` + `ek-api-email`.
 
 ## License

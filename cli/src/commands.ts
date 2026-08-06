@@ -1,7 +1,11 @@
+import { execFileSync } from 'node:child_process'
 import {
   apiCall,
   apiRequest,
+  assertSearchSessionBudget,
+  CLI_VERSION,
   CONFIG_PATH,
+  countSearchResults,
   DEFAULT_API_BASE,
   emit,
   EXIT,
@@ -10,6 +14,7 @@ import {
   loadConfig,
   maskKey,
   readStdin,
+  recordSearchSessionSpend,
   required,
   saveConfig,
 } from './core'
@@ -117,8 +122,22 @@ export const API_COMMANDS: CommandDef[] = [
       } catch {
         reachable = false
       }
+      let latestCliVersion: string | null = null
+      let updateAvailable = false
+      try {
+        latestCliVersion = execFileSync('npm', ['view', '@easykol/cli', 'version'], {
+          encoding: 'utf8',
+          timeout: 15_000,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim()
+        updateAvailable = Boolean(latestCliVersion && latestCliVersion !== CLI_VERSION)
+      } catch {
+        latestCliVersion = null
+      }
       emit({
-        cliVersion: '0.1.0',
+        cliVersion: CLI_VERSION,
+        latestCliVersion,
+        updateAvailable,
         node: process.version,
         nodeOk: majorNode >= 18,
         configPath: CONFIG_PATH,
@@ -127,6 +146,67 @@ export const API_COMMANDS: CommandDef[] = [
         apiBase: base,
         reachable,
       })
+    },
+  },
+  {
+    name: 'upgrade',
+    summary: 'Update @easykol/cli and refresh the easykol skill from GitHub (free)',
+    billing: 'free',
+    options: [
+      {
+        flags: '--skip-skill',
+        description: 'only update the CLI package, do not run skills update',
+      },
+    ],
+    async run(opts) {
+      const steps: Array<{ step: string; ok: boolean; detail?: string }> = []
+
+      try {
+        const out = execFileSync('npm', ['install', '-g', '@easykol/cli@latest'], {
+          encoding: 'utf8',
+          timeout: 120_000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        steps.push({ step: 'cli', ok: true, detail: out.trim().split('\n').slice(-3).join(' | ') })
+      } catch (e: any) {
+        steps.push({
+          step: 'cli',
+          ok: false,
+          detail: e?.stderr?.toString?.() || e?.message || String(e),
+        })
+      }
+
+      if (!opts.skipSkill) {
+        try {
+          const out = execFileSync(
+            'npx',
+            ['--yes', 'skills', 'update', 'easykol', '-y'],
+            {
+              encoding: 'utf8',
+              timeout: 120_000,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            },
+          )
+          steps.push({ step: 'skill', ok: true, detail: out.trim().split('\n').slice(-5).join(' | ') })
+        } catch (e: any) {
+          steps.push({
+            step: 'skill',
+            ok: false,
+            detail: e?.stderr?.toString?.() || e?.message || String(e),
+          })
+        }
+      }
+
+      const ok = steps.every((s) => s.ok)
+      emit({
+        upgraded: ok,
+        cliVersionBefore: CLI_VERSION,
+        steps,
+        hint: ok
+          ? 'CLI/skill refresh attempted. Re-read the easykol skill if this session started on an older copy.'
+          : 'Partial failure — retry or ask the user to run: npm i -g @easykol/cli@latest && npx skills update easykol -y',
+      })
+      if (!ok) process.exitCode = EXIT.GENERIC
     },
   },
   {
@@ -330,7 +410,7 @@ export const API_COMMANDS: CommandDef[] = [
   {
     name: 'search',
     summary: 'Run the KOL search and return matching creators (consumes quota)',
-    billing: 'N quota (N = results returned; 0 = free)',
+    billing: 'N quota (N = results returned; 0 = free); session budget 50 unless --confirm-spend',
     options: [
       { flags: '--sentence <text>', description: 'natural-language search description (required)' },
       { flags: '--platform <p>', description: 'TIKTOK | YOUTUBE | INSTAGRAM (required)' },
@@ -339,6 +419,11 @@ export const API_COMMANDS: CommandDef[] = [
       { flags: '--keywords <list>', description: 'confirmed keywords from parse/more-words (comma-separated)' },
       { flags: '--has-contact', description: 'only return creators with contact info' },
       { flags: '--gender <g>', description: 'male | female' },
+      {
+        flags: '--confirm-spend',
+        description:
+          'user-approved override when this call would exceed the rolling search session budget (default 50)',
+      },
       ...FILTER_OPTIONS,
     ],
     async run(opts) {
@@ -348,10 +433,22 @@ export const API_COMMANDS: CommandDef[] = [
       if (minSubscribers === undefined) fail(EXIT.PARAMS, 'Missing required option --min-subscribers')
       const avgMin = num(opts.avgMin)
       if (avgMin === undefined) fail(EXIT.PARAMS, 'Missing required option --avg-min')
+      const limit = num(opts.limit) ?? 20
+      if (!Number.isInteger(limit) || limit < 1 || limit > 50)
+        fail(EXIT.PARAMS, '--limit must be an integer from 1 to 50')
+      // Single-call soft cap: >30 needs explicit user-approved spend confirmation.
+      if (limit > 30 && !opts.confirmSpend) {
+        fail(
+          EXIT.BUDGET,
+          `--limit ${limit} exceeds 30. Ask the user to approve, then re-run with --confirm-spend.`,
+          { hint: 'Confirm with the user before large single searches' },
+        )
+      }
+      assertSearchSessionBudget(limit, Boolean(opts.confirmSpend))
       const body: Record<string, unknown> = {
         sentence: required<string>(opts.sentence, '--sentence'),
         platform: normPlatform(opts.platform),
-        limit: num(opts.limit),
+        limit,
         canonicalTags: parseList(opts.tags),
         keywords: parseList(opts.keywords),
         hasContactInfo: opts.hasContact ? true : undefined,
@@ -364,6 +461,7 @@ export const API_COMMANDS: CommandDef[] = [
         avgMax: num(opts.avgMax),
       }
       const data = await apiRequest({ method: 'POST', path: '/intelligent-search', body })
+      recordSearchSessionSpend(countSearchResults(data))
       emit(data)
     },
   },

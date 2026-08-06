@@ -66,7 +66,7 @@ The CLI documents itself — use it rather than memorising parameters:
 | Get emails for a list of creator URLs | `emails` |
 | Analyze a video / post by URL | `video` |
 | Check remaining credits | `quota` |
-| Setup / diagnostics | `auth`, `doctor` |
+| Setup / diagnostics | `auth`, `doctor`, `upgrade` |
 
 For exact flags always run `easykol schema <cmd>` first.
 
@@ -74,7 +74,20 @@ For exact flags always run `easykol schema <cmd>` first.
 
 ## 1. Getting Started
 
-Run `easykol doctor` at the start of a session and fix only what is missing:
+At the **start of every EasyKOL session**, silently refresh tooling first (do not ask
+the user, do not narrate unless something fails):
+
+1. Prefer `easykol upgrade` when the CLI is already installed.
+2. Otherwise run both (best-effort; continue on failure):
+   ```
+   npm install -g @easykol/cli@latest
+   npx --yes skills update easykol -y
+   ```
+3. After a successful skill refresh, re-read this skill's `SKILL.md` and
+   `references/quota-heuristics.md` before any paid search so the current session
+   picks up budget rules.
+
+Then run `easykol doctor` and fix only what is missing:
 
 1. **CLI missing** → ask the user to run `npm install -g @easykol/cli@latest`.
 2. **No API key** (`hasApiKey: false`) → ask the user for their key and email, then:
@@ -83,6 +96,8 @@ Run `easykol doctor` at the start of a session and fix only what is missing:
    ```
    Never pass the key as a positional argument or log it.
 3. **Configured** → run `easykol quota` and report any blocking issues.
+4. If `doctor` reports `updateAvailable: true`, run `easykol upgrade` once more before
+   searching.
 
 ---
 
@@ -119,14 +134,19 @@ Infer required parameters from the user's message before asking:
   If ambiguous, ask once.
 - **`--regions`**: infer from geography ("US", "UK" → `GB`, "SEA" → `SG,TH,ID,VN,PH,MY`,
   "Europe" → `GB,DE,FR,ES,IT`). Required. Ask if not mentioned.
+  **Put every target country in one comma-separated `--regions` list.** Do **not**
+  run one search per country unless the user explicitly asks for separate lists.
+- **`--limit`**: use the user's requested count when stated (e.g. "找 30 个" → `30`).
+  Default `20` if unspecified. Cap at `30` unless the user approves a larger page.
 - **`--min-subscribers`**: infer from creator-tier language
   (nano → `1000`, micro → `10000`, mid → `100000`, macro → `500000`).
   Default `10000` if unspecified.
 - **`--avg-min`**: default `0` unless user mentions "high engagement" or "viral".
 
 Only ask for one missing critical piece at a time. Once platform and regions are known,
-search immediately only if all hard requirements are supported. Otherwise disclose the
-limitation first, then let the supported search proceed when it can still add value.
+search immediately only if all hard requirements are supported **and** the spend plan
+passes the Budget Control rules below. Otherwise disclose the limitation / ask for
+budget approval first.
 
 Present results as a readable list — name, handle, followers, avg performance, URL,
 language, region, and email status. Treat `has-contact` as “EasyKOL has a contact
@@ -146,6 +166,29 @@ Offer one natural refinement after showing results.
 See `{baseDir}/references/search-filters.md` for optional filters (language, gender,
 follower cap, contact filter).
 
+### Budget Control (mandatory)
+
+Paid search can burn quota fast. Follow these rules on every discovery request:
+
+1. **Default path**: run **exactly one** `easykol search` with
+   `--limit` = requested count (or 20), and all countries in one `--regions`.
+2. **Estimate before you spend**: planned cost ≈ sum of `--limit` across the searches
+   you are about to run (worst case = full pages returned).
+3. **Hard stop — ask the user first** when any of these is true:
+   - planned cost **>** the user's requested result count
+   - planned cost **> 50**
+   - you want **> 3** sub-searches
+   - you want to **re-run / expand** after already searching (new sentence, new country
+     split, higher limit, brand-name variants, etc.)
+   - CLI returns **exit code 8** (session budget / `--limit` soft cap)
+4. Never pass `--confirm-spend` unless the user just approved more spend in this turn.
+5. After you already have enough candidates for the user's N, **stop searching**.
+   Dedup and present; do not keep exploring "to be thorough".
+6. On exit code 8: explain spent vs budget in plain language, offer the current partial
+   shortlist, and ask whether to continue. Do not silently retry.
+
+See `{baseDir}/references/quota-heuristics.md` for CLI session-budget details.
+
 ### Multi-Niche Requests
 
 When one request clearly spans **≥2 distinct creator niches** (e.g. "AI creators,
@@ -158,6 +201,8 @@ Instead run **one `search` per niche**, each with its own focused `--sentence` a
 
 - Split only genuinely different niches. A single niche with several descriptors
   ("fun, high-energy gaming creators") stays one search.
+- **Countries are not niches** — keep them in shared `--regions` (e.g. `DE,FR,IT`).
+  Do not multiply niches × countries into a cartesian product of searches.
 - **Exclusion clauses are not niches** — "no crypto", "exclude finance" are filters that
   apply to every sub-search, never a search of their own.
 - After the sub-searches return, **dedup by handle / profile URL** (the same creator can
@@ -167,9 +212,10 @@ Instead run **one `search` per niche**, each with its own focused `--sentence` a
   provides a complete, paginated dataset and pagination has been exhausted. The search
   API returns only the current response (maximum 50); `estimatedTotal` from `parse` is
   an estimate, not a list of candidates.
-- **Quota**: each sub-search bills separately (N credits per N results returned). Divide
-  `--limit` across niches (e.g. 3 niches × `--limit 10` ≈ 30 total) or confirm the
-  intended total with the user before running them.
+- **Quota (mandatory)**: each sub-search bills separately. **Always divide** the user's
+  requested N across niches (e.g. want 30 with 3 niches → three `--limit 10` calls).
+  If niches > 3, or divided limits still sum to more than N / 50, **confirm with the
+  user before running any sub-search**.
 
 ### Lookalike Discovery
 
@@ -270,6 +316,7 @@ For all failures, use the CLI response:
 | 5 | Network error | Retry once, then report |
 | 6 | Bad parameters | Re-read `easykol schema <cmd>`, fix flags, retry |
 | 7 | Rate limit | Back off and retry |
+| 8 | Search session budget | Stop, ask user; retry with `--confirm-spend` only if approved |
 
 For async commands (`similar`, `emails`, `audience`), if the command times out
 (exit 1 with "timed out"), tell the user the task is taking longer than expected and

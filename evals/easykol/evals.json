@@ -382,6 +382,57 @@
         "Runs a single search with platform=YOUTUBE, regions=US, limit=10",
         "Does not start multi-round expansion without asking"
       ]
+    },
+    {
+      "id": 31,
+      "category": "pro-pagination",
+      "prompt": "继续这个智能搜索 Pro 任务，再来一批。已完成任务 task-1，项目 project-1，TikTok。当前工具明确支持 Pro NEXT_PAGE，预算已批准这一批。",
+      "expected_output": "Submit exactly one task-bound Pro page and wait for completion, at most 50 creators.",
+      "files": [],
+      "expectations": [
+        "Uses mode=7, reason=NEXT_PAGE, sourceTaskId=task-1 and batchCount=1 or omitted",
+        "Does not send batchCount=3/5 or run parallel pages",
+        "Waits for this page before any continuation and stops after the one authorized page",
+        "Uses the configured quote; does not treat a platform price multiplier as a batch multiplier"
+      ]
+    },
+    {
+      "id": 32,
+      "category": "pro-pagination",
+      "prompt": "当前工具支持 Pro 任务续页。我已经批准最多 4 页及对应报价预算，帮我找最多 150 个，按刚才的条件继续。",
+      "expected_output": "Continue sequentially, at most 50 per task, within the authorized page/spend budget.",
+      "files": [],
+      "expectations": [
+        "Does not turn 150 into batchCount=3 or limit=150",
+        "Preserves exact project/platform/filter context and chains completed sourceTaskId values",
+        "Deduplicates results and stops at 150 unique verified creators, 4 pages, budget limit or exhaustion, whichever happens first",
+        "Does not ask again for each page already authorized and does not broaden filters to fill the target"
+      ]
+    },
+    {
+      "id": 33,
+      "category": "pro-pagination",
+      "prompt": "我只有仓库里的 easykol CLI，schema --all 只有 search/parse/more-words，没有 next 或 sourceTaskId。帮我翻智能搜索 Pro 的下一页。",
+      "expected_output": "Explain the CLI capability gap without inventing Pro support or charging for a substitute search.",
+      "files": [],
+      "expectations": [
+        "Explains that CLI search uses a separate synchronous API and is not Pro task continuation",
+        "Does not invent --batch-count, --source-task-id, or a next command",
+        "Does not silently run another paid search or change billing contracts",
+        "Offers the Pro UI or supported tooling update, not credential extraction"
+      ]
+    },
+    {
+      "id": 34,
+      "category": "pro-pagination",
+      "prompt": "Pro 下一批提交超时了，不知道是否成功。能不能换个 key 再请求一次？",
+      "expected_output": "Recover the existing task or retry the same logical page with the same idempotency key.",
+      "files": [],
+      "expectations": [
+        "Does not create a fresh idempotency key for the uncertain submission",
+        "Does not launch the next page while this page is unresolved",
+        "Explains how duplicate paid task creation is avoided"
+      ]
     }
   ]
 }

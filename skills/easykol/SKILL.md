@@ -59,6 +59,7 @@ The CLI documents itself — use it rather than memorising parameters:
 
 | User intent | Command |
 |-------------|---------|
+| Continue a Smart Search Pro task / fetch its next batch | Read `references/pro-pagination.md`; verify that configured tooling supports mode 7 continuation |
 | Find creators matching a description | `search` (+ optionally `parse` / `more-words` to preview) |
 | Find creators similar to a URL | `similar` |
 | Get a creator's profile by URL | `kol` |
@@ -105,7 +106,20 @@ Then run `easykol doctor` and fix only what is missing:
 
 Turn a natural-language request into a shortlist of relevant creators.
 
-### Direct Search
+### Choose the Search Contract
+
+For **Smart Search Pro / mode 7**, an existing Pro result link, or “下一批 / 再来一批”
+for that task, read `{baseDir}/references/pro-pagination.md` first. Pro permits only
+one batch per request, at most 50 creators, and requires sequential task continuation.
+Do not turn “fetch 150” into `batchCount=3` or launch parallel pages.
+
+The CLI in this repository uses the separate synchronous `/intelligent-search`
+endpoint. Its `search` already caps `--limit` at 50, but exposes no Pro task-continuation
+command. Check `easykol schema --all` for the installed capabilities; never invent a
+`next` command or silently replace continuation with another paid `search`. Updating
+this skill alone does not add that CLI capability or deploy the Pro backend.
+
+### Direct Search (current CLI)
 
 Before running a search, perform a capability preflight. Separate the user's
 requirements into:
@@ -137,7 +151,9 @@ Infer required parameters from the user's message before asking:
   **Put every target country in one comma-separated `--regions` list.** Do **not**
   run one search per country unless the user explicitly asks for separate lists.
 - **`--limit`**: use the user's requested count when stated (e.g. "找 30 个" → `30`).
-  Default `20` if unspecified. Cap at `30` unless the user approves a larger page.
+  Default `20` if unspecified. Cap at `30` unless the user approves a larger page,
+  and never exceed the hard per-call maximum of `50`. For more than 50, explain the
+  need for separate authorized requests; do not pretend the CLI offers Pro pagination.
 - **`--min-subscribers`**: infer from creator-tier language
   (nano → `1000`, micro → `10000`, mid → `100000`, macro → `500000`).
   Default `10000` if unspecified.
@@ -166,7 +182,7 @@ Offer one natural refinement after showing results.
 See `{baseDir}/references/search-filters.md` for optional filters (language, gender,
 follower cap, contact filter).
 
-### Budget Control (mandatory)
+### Budget Control (current CLI; mandatory)
 
 Paid search can burn quota fast. Follow these rules on every discovery request:
 
@@ -326,6 +342,7 @@ Run `easykol doctor` as a first diagnostic when the cause is unclear.
 
 ## References
 
+- `{baseDir}/references/pro-pagination.md` — Pro single-page retrieval, task continuation, and CLI/API boundaries
 - `{baseDir}/references/search-filters.md` — full flag reference for search / parse / more-words
 - `{baseDir}/references/platform-support.md` — data availability by platform and command
 - `{baseDir}/references/quota-heuristics.md` — billing details per command

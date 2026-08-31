@@ -3,6 +3,11 @@
 Parameters for `easykol parse`, `easykol more-words`, and `easykol search`. Confirm
 the live set with `easykol schema <cmd>`.
 
+These flags belong to the synchronous `/intelligent-search` CLI, not Pro mode 7.
+For Pro continuation, read [pro-pagination.md](pro-pagination.md). The current CLI
+has no Pro `NEXT_PAGE` / `sourceTaskId` command; `--limit` is a result limit, not a
+batch multiplier, and cannot exceed 50 even with budget approval.
+
 ## `search` Required Flags
 
 | Flag | Example | Notes |

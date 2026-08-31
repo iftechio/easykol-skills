@@ -2,6 +2,15 @@
 
 EasyKOL bills against your membership quota (same credits as the web app).
 
+## Pro is a different billing contract
+
+This table describes the current CLI's external API, not Smart Search Pro (`mode=7`).
+For Pro use [pro-pagination.md](pro-pagination.md): one request means one batch of at
+most 50, priced by the Pro quote with existing platform/advanced-filter multipliers.
+Do not estimate Pro cost as `--limit`, and do not apply Pro's batch price to the CLI.
+The CLI's soft cap and rolling budget below do not change the hard maximum of 50
+results per synchronous call.
+
 ## Cost per Command
 
 | Command | Cost | Notes |

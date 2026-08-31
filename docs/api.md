@@ -311,6 +311,13 @@ If you pass `canonicalTags` or `keywords` directly, the automatic selection is s
 
 ## POST /web-search
 
+**Contract boundary:** this external API's `searchType=smart` is mode 4, not Smart
+Search Pro mode 7. Its 1–10 batch option below remains specific to this endpoint.
+Pro first/next requests are single-batch, at most 50 creators, through the separate
+authenticated `/api/search/v2/web-search` contract; see
+[Pro pagination](../skills/easykol/references/pro-pagination.md). The current CLI does
+not expose that task-continuation contract. Do not copy the multiplier into Pro.
+
 Async KOL search — one endpoint, three modes: `tag` (tag-direct), `keyword`, `smart` (one-sentence semantic). Returns a `taskId`; poll `GET /web-search/{taskId}` for results. Results are refreshed via RapidAPI (followers, last-published, etc.).
 
 **Quota cost:** charged on submit as `base × batchCount`, refunded by actual result count on completion — **0 results = no charge**. TikTok/YouTube = 1 task point per batch, Instagram = 2.

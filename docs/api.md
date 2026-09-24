@@ -2,6 +2,14 @@
 
 Base URL: `https://app.easykol.com/external/v1`
 
+### Video / post data
+
+`GET /video?url=<encoded-video-or-post-url>` returns a unified video object.
+The `shareCount` field contains the platform's share/reshare count when
+available: TikTok generally provides it, Instagram Reels may provide it, and
+the current YouTube details contract does not expose it, so YouTube may return
+`null`. A `null` value means unavailable from the upstream response, not zero.
+
 ---
 
 ## Authentication

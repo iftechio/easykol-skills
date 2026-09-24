@@ -309,7 +309,10 @@ and share the URL.
 ## 5. Analyzing a Video
 
 Run `easykol video --url <video-url>` to fetch video metadata: title, view count,
-like count, publish date, author name, author follower count.
+like count, comment count, share/reshare count when the platform supplies it,
+publish date, author name, and author follower count. The response field is
+`shareCount`; `null` means the upstream platform endpoint did not provide a
+share metric (it is not a measured zero).
 
 Supported: YouTube videos, TikTok posts, Instagram reels/posts.
 

@@ -312,9 +312,10 @@ Run `easykol video --url <video-url>` to fetch video metadata: title, view count
 like count, comment count, share count, Instagram Repost count when supplied,
 publish date, author name, and author follower count. `shareCount` is the share
 metric (the Instagram paper-plane action); `repostCount` is Instagram's distinct
-double-arrow Repost metric. For either field, `null` means the upstream platform
-endpoint did not provide that metric (it is not a measured zero). Do not combine
-or substitute these fields.
+double-arrow Repost metric. For Instagram, both fields are sourced from the v3
+post-detail response; v5 values are not used. For either field, `null` means the
+v3 endpoint did not provide that metric (it is not a measured zero). Do not
+combine or substitute these fields.
 
 Supported: YouTube videos, TikTok posts, Instagram reels/posts.
 

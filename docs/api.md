@@ -7,9 +7,11 @@ Base URL: `https://app.easykol.com/external/v1`
 `GET /video?url=<encoded-video-or-post-url>` returns a unified video object.
 `shareCount` contains the platform's share count when available. For Instagram,
 this is the paper-plane share metric. `repostCount` contains Instagram's distinct
-double-arrow Repost metric when available. TikTok generally provides
-`shareCount`; the current YouTube details contract provides neither metric.
-For either field, `null` means unavailable from the upstream response, not zero.
+double-arrow Repost metric when available. Both Instagram fields are sourced
+from the v3 post-detail response; v5 values are not used. TikTok generally
+provides `shareCount`; the current YouTube details contract provides neither
+metric. For either field, `null` means unavailable from the upstream response,
+not zero.
 
 ---
 

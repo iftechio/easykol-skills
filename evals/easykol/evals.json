@@ -166,6 +166,19 @@
       ]
     },
     {
+      "id": 35,
+      "category": "video",
+      "prompt": "Check the share and repost counts for this Instagram post: https://www.instagram.com/p/Ddqh7XYm-Rs/",
+      "expected_output": "Run easykol video and report shareCount and repostCount separately",
+      "files": [],
+      "expectations": [
+        "Runs easykol video with the Instagram URL",
+        "Reports shareCount and repostCount as distinct metrics",
+        "Treats null as unavailable rather than zero",
+        "Does NOT substitute repostCount for shareCount"
+      ]
+    },
+    {
       "id": 14,
       "category": "account",
       "prompt": "I just signed up for EasyKOL and want to get started. My API key is ek_live_abc123def456 and my email is user@example.com.",

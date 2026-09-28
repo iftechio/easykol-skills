@@ -309,10 +309,12 @@ and share the URL.
 ## 5. Analyzing a Video
 
 Run `easykol video --url <video-url>` to fetch video metadata: title, view count,
-like count, comment count, share/reshare count when the platform supplies it,
-publish date, author name, and author follower count. The response field is
-`shareCount`; `null` means the upstream platform endpoint did not provide a
-share metric (it is not a measured zero).
+like count, comment count, share count, Instagram Repost count when supplied,
+publish date, author name, and author follower count. `shareCount` is the share
+metric (the Instagram paper-plane action); `repostCount` is Instagram's distinct
+double-arrow Repost metric. For either field, `null` means the upstream platform
+endpoint did not provide that metric (it is not a measured zero). Do not combine
+or substitute these fields.
 
 Supported: YouTube videos, TikTok posts, Instagram reels/posts.
 

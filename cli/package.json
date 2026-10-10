@@ -1,7 +1,7 @@
 {
   "name": "@easykol/cli",
-  "version": "0.1.1",
-  "description": "EasyKOL CLI — KOL discovery over the EasyKOL API (used by the easykol agent skill)",
+  "version": "0.2.0",
+  "description": "EasyKOL CLI \u2014 KOL discovery over the EasyKOL API (used by the easykol agent skill)",
   "bin": {
     "easykol": "dist/index.js"
   },
@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
     "commander": "^12.1.0"

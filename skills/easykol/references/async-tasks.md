@@ -1,6 +1,8 @@
 # Async Tasks
 
-Three commands are asynchronous: `similar`, `emails`, and `audience`. The CLI handles
+`search`, `search-next`, `similar`, `emails`, and `audience` are asynchronous. Search
+recovery and result-page semantics are specified in [search-modes.md](search-modes.md).
+Do not resubmit search on polling timeout; read the existing task ID. The CLI handles
 polling internally — the agent does not need to manage task IDs or poll manually.
 
 ## Behaviour
@@ -22,16 +24,16 @@ The CLI blocks until the task completes or times out, then emits the standard
 | `emails` | 180s | `--timeout <seconds>` |
 | `audience` | 120s | `--timeout <seconds>` |
 
-If the task times out (exit 1, message contains "timed out"), tell the user the
+For `similar`, `emails`, and `audience`, if the task times out (exit 1, message contains "timed out"), tell the user the
 analysis is taking longer than expected and suggest retrying with `--timeout 300`.
 
 ## `audience` Cache Behaviour
 
 `audience` checks for any existing result within the past **30 days** before creating
 a new task. On a cache hit the command returns immediately. On a miss it creates a new analysis task.
-Both cost **5 quota**.
+A new analysis costs **20 raw quota**; a cache hit is free.
 
-You do not need to manage cache state — the backend handles it. Run `audience` freely;
+You do not need to manage cache state — the backend handles it. Plan paid calls within the user's authorization;
 only the first call for a creator within 30 days incurs cost.
 
 ## Telling the User

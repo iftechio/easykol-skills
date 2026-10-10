@@ -19,12 +19,12 @@ export const EXIT = {
 export const DEFAULT_API_BASE = 'https://app.easykol.com'
 
 /** Keep in sync with package.json version. */
-export const CLI_VERSION = '0.1.1'
+export const CLI_VERSION = '0.2.0'
 
 /** Default max search quota spendable in one rolling CLI session without --confirm-spend. */
 export const DEFAULT_SEARCH_SESSION_BUDGET = 50
 
-const CONFIG_DIR = join(homedir(), '.easykol')
+export const CONFIG_DIR = process.env.EASYKOL_CONFIG_DIR || join(homedir(), '.easykol')
 export const CONFIG_PATH = join(CONFIG_DIR, 'config.json')
 const SEARCH_SESSION_PATH = join(CONFIG_DIR, 'search-session.json')
 const SEARCH_SESSION_TTL_MS = 2 * 60 * 60 * 1000
@@ -33,6 +33,7 @@ interface SearchSessionState {
   startedAt: number
   spent: number
   keyHint?: string
+  reservations?: Record<string, number>
 }
 
 export interface EasykolConfig {
@@ -100,6 +101,8 @@ interface CallOptions {
   path: string // relative to /external/v1
   body?: unknown
   query?: Record<string, string | undefined>
+  version?: 1 | 2
+  timeoutMs?: number
 }
 
 /** Low-level call — never throws, never exits on HTTP error (returns the result). */
@@ -118,7 +121,7 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
         .join('&')
     : ''
-  const url = `${base}/external/v1${opts.path}${qs}`
+  const url = `${base}/external/v${opts.version ?? 1}${opts.path}${qs}`
 
   let res: Response
   try {
@@ -130,6 +133,7 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
         'content-type': 'application/json',
       },
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000),
     })
   } catch (e: any) {
     return { ok: false, status: 0, json: null, networkError: e?.message || String(e) }
@@ -174,6 +178,8 @@ export async function apiRequest<T = unknown>(opts: CallOptions): Promise<T> {
   const base = loadConfig().apiBase || DEFAULT_API_BASE
   const r = await apiCall(opts)
   if (r.ok) return (r.json?.data ?? r.json) as T
+  if (opts.version === 2 && r.status === 404) fail(EXIT.PARAMS,
+    'External search v2 endpoint or task is unavailable. Verify backend deployment and task ownership; no automatic V1 fallback.')
   failHttp(base, r)
 }
 
@@ -199,7 +205,8 @@ function loadSearchSession(): SearchSessionState {
     const state = JSON.parse(readFileSync(SEARCH_SESSION_PATH, 'utf8')) as SearchSessionState
     if (!state?.startedAt || Date.now() - state.startedAt > SEARCH_SESSION_TTL_MS)
       return { startedAt: Date.now(), spent: 0 }
-    return { startedAt: state.startedAt, spent: Math.max(0, Number(state.spent) || 0), keyHint: state.keyHint }
+    return { startedAt: state.startedAt, spent: Math.max(0, Number(state.spent) || 0), keyHint: state.keyHint,
+      reservations: state.reservations ?? {} }
   } catch {
     return { startedAt: Date.now(), spent: 0 }
   }
@@ -242,6 +249,27 @@ export function recordSearchSessionSpend(actualCost: number): void {
   session.spent += cost
   session.keyHint = cfg.apiKey ? maskKey(cfg.apiKey) : session.keyHint
   saveSearchSession(session)
+}
+
+/** v2 quotes are task points; keep the shared session guard in raw quota (10 per point). */
+export function reserveSearchTaskBudget(identity: string, quota: number, confirmSpend: boolean): void {
+  if (!Number.isSafeInteger(quota) || quota <= 0) fail(EXIT.PARAMS, 'Invalid search quote in the saved request')
+  const state = loadSearchSession()
+  const previous = state.reservations?.[identity] ?? 0
+  if (previous >= quota) return
+  assertSearchSessionBudget(quota - previous, confirmSpend)
+  state.reservations = { ...state.reservations, [identity]: quota }
+  state.spent += quota - previous
+  saveSearchSession(state)
+}
+
+export function reconcileSearchTaskBudget(identity: string, quota: number): void {
+  const state = loadSearchSession()
+  const reserved = state.reservations?.[identity]
+  if (reserved === undefined) return
+  state.spent = Math.max(0, state.spent + quota - reserved)
+  state.reservations![identity] = quota
+  saveSearchSession(state)
 }
 
 export function countSearchResults(data: unknown): number {

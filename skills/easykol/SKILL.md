@@ -59,8 +59,8 @@ The CLI documents itself — use it rather than memorising parameters:
 
 | User intent | Command |
 |-------------|---------|
-| Continue a Smart Search Pro task / fetch its next batch | Read `references/pro-pagination.md`; verify that configured tooling supports mode 7 continuation |
-| Find creators matching a description | `search` (+ optionally `parse` / `more-words` to preview) |
+| Read a search task / continue its next batch | `task --task-id` / `search-next --task-id` (same source mode and filters) |
+| Find creators matching a description | `search --mode fast|standard|beta` (default fast); `parse --mode` for optional preview |
 | Find creators similar to a URL | `similar` |
 | Get a creator's profile by URL | `kol` |
 | Get a creator's audience breakdown | `audience` |
@@ -106,132 +106,89 @@ Then run `easykol doctor` and fix only what is missing:
 
 Turn a natural-language request into a shortlist of relevant creators.
 
-### Choose the Search Contract
+### Choose a Mode
 
-For **Smart Search Pro / mode 7**, an existing Pro result link, or “下一批 / 再来一批”
-for that task, read `{baseDir}/references/pro-pagination.md` first. Pro permits only
-one batch per request, at most 50 creators, and requires sequential task continuation.
-Do not turn “fetch 150” into `batchCount=3` or launch parallel pages.
+Use CLI 0.2.0 or newer and the external V2 backend. Read
+`{baseDir}/references/search-modes.md` for the request / result contract.
 
-The CLI in this repository uses the separate synchronous `/intelligent-search`
-endpoint. Its `search` already caps `--limit` at 50, but exposes no Pro task-continuation
-command. Check `easykol schema --all` for the installed capabilities; never invent a
-`next` command or silently replace continuation with another paid `search`. Updating
-this skill alone does not add that CLI capability or deploy the Pro backend.
+| User intent | Mode | Existing web pipeline | Target per batch |
+|-------------|------|-----------------------|------------------|
+| Quick shortlist, no specified mode | `fast` (default; tell the user) | mode 8 historical, stored data + text relevance, background refresh | 60 |
+| Normal / standard search | `standard` | mode 8 regular, profile relevance + realtime refresh and hard-filter recheck | 50 |
+| Beta / Pro, product promotion fit or visual screening | `beta` | mode 7, product requirements + optional visual screening | 50 |
 
-### Direct Search (current CLI)
+Never silently substitute modes. Beta permits exactly one batch per request.
+For existing search tasks preserve their mode and filters; read
+`{baseDir}/references/pro-pagination.md` before continuation.
 
-Before running a search, perform a capability preflight. Separate the user's
-requirements into:
+### Search Workflow
 
-- **Verifiable search filters**: platform, creator region, creator language, creator
-  gender, follower range, average performance, and contact-info presence.
-- **Verifiable only per creator**: audience age/gender/region and suspected fake rate
-  via `audience`; visible email via `kol` or bulk `emails`.
-- **Unsupported**: metrics or filters not exposed by the CLI/API, including TikTok
-  Shop fulfilment rate and exact audience age ranges that do not match the returned
-  buckets.
+1. Preflight the user's hard requirements. Search supports creator platform,
+   region/language, follower/performance range, creator gender and contact presence.
+   Audience demographics require separate `audience` analysis; unsupported metrics
+   such as TikTok Shop fulfilment rate must remain unverified. Do not convert an
+   unsupported hard condition to a keyword and claim verification.
+2. Infer platform, countries and requested mode from context. Ask for a critical
+   missing platform once. Put all target countries in one `--regions` list; omit
+   filters the user did not specify rather than inventing thresholds. Consumer
+   target age/gender belongs to Beta `--product` / `--audience`, not creator filters.
+3. Submit one `search` by default. The CLI obtains a free mode-specific preparation
+   and quote before the paid request. `parse` is optional for showing / editing the
+   plan, not a required user confirmation stage. The user's existing authorization
+   applies to all necessary steps within their stated scope and budget.
+4. Keep the returned `taskId` and `idempotencyKey`. `search` waits for readable
+   results by default; `--no-wait` returns immediately. A timeout is not a failed
+   search. Resume `task --task-id <id>` for free; if submission outcome is uncertain,
+   recover `search --idempotency-key <original-key>` from the saved local journal.
+   Never start a replacement paid search because polling timed out.
+5. Present the requested number from the readable results, dedup by `kolId` / URL,
+   and verify supported hard conditions against returned fields. Missing metrics,
+   `screening=unverified`, or unsupported requirements remain unverified. Describe
+   partial candidates honestly. Contact presence does not prove a public or
+   deliverable email; count actual non-empty emails when required.
 
-If an unsupported requirement is stated as a hard requirement, do not claim that the
-request is fully completed. Explain the unsupported fields, run only the supported
-part if useful, and label the output as a partial candidate list. Never turn an
-unsupported condition into a sentence keyword and present the result as if it were
-verified.
+`RESULT_READY` means results may be read, not that processing/settlement completed.
+`COMPLETED` with `settlement.pending=true` still awaits refund reconciliation.
+Unknown stage counts are `null`, not zero. Never label a failed or unfinished task
+as zero recall or treat unknown judgments as rejection.
 
-Run `easykol search` directly after the preflight. **Do not run `parse` first by
-default** — the backend handles tag and keyword selection internally.
+### Reading More Results and Continuing
 
-Infer required parameters from the user's message before asking:
+- `task --task-id <id> --offset 50 --limit 50` reads another stored page **for free**.
+  Exhaust the existing task's `nextOffset` before requesting another paid batch.
+- When the authorized target needs another batch, wait for `COMPLETED`, then
+  `search-next --task-id <latest-id>` using a new idempotency key. It inherits mode,
+  platform and filters. Continue serially from each returned child task; do not
+  branch from an older parent or launch parallel continuations.
+- Stop when the user's requested number is reached. A batch target is not a
+  guaranteed quantity. Explain a shortfall without automatically changing modes,
+  weakening filters or running unrelated searches.
 
-- **`--platform`**: infer from context ("YouTube/YT/video" → `YOUTUBE`,
-  "TikTok/TT/short video" → `TIKTOK`, "Instagram/IG/Reels" → `INSTAGRAM`).
-  If ambiguous, ask once.
-- **`--regions`**: infer from geography ("US", "UK" → `GB`, "SEA" → `SG,TH,ID,VN,PH,MY`,
-  "Europe" → `GB,DE,FR,ES,IT`). Required. Ask if not mentioned.
-  **Put every target country in one comma-separated `--regions` list.** Do **not**
-  run one search per country unless the user explicitly asks for separate lists.
-- **`--limit`**: use the user's requested count when stated (e.g. "找 30 个" → `30`).
-  Default `20` if unspecified. Cap at `30` unless the user approves a larger page,
-  and never exceed the hard per-call maximum of `50`. For more than 50, explain the
-  need for separate authorized requests; do not pretend the CLI offers Pro pagination.
-- **`--min-subscribers`**: infer from creator-tier language
-  (nano → `1000`, micro → `10000`, mid → `100000`, macro → `500000`).
-  Default `10000` if unspecified.
-- **`--avg-min`**: default `0` unless user mentions "high engagement" or "viral".
+### Budget Control
 
-Only ask for one missing critical piece at a time. Once platform and regions are known,
-search immediately only if all hard requirements are supported **and** the spend plan
-passes the Budget Control rules below. Otherwise disclose the limitation / ask for
-budget approval first.
+The CLI reserves the **server quote**, not the number of displayed rows. One task
+point equals 10 raw quota. The shared rolling CLI search budget defaults to 50 raw
+quota (5 points) per 2-hour window; finalized refunds reconcile on task reads.
+Use `{baseDir}/references/quota-heuristics.md` for details.
 
-Present results as a readable list — name, handle, followers, avg performance, URL,
-language, region, and email status. Treat `has-contact` as “EasyKOL has a contact
-record”, not proof that the address is public or deliverable. If the user requires
-every result to have an email, count non-empty emails after the search and report the
-actual coverage; do not silently fill or fabricate missing addresses.
+Use one batch by default. For a user-authorized larger plan, sum the quoted batch
+costs and continue within that authorization; do not request repeated permission
+at every stage. If the plan exceeds the user's approved scope/budget or the CLI
+returns exit 8, explain the extra cost and obtain approval before `--confirm-spend`.
+Existing explicit approval persists across turns; never invent it.
 
-For a hard-filter request, run a postcondition check before saying “completed”:
+For distinct niches, use focused sentences with shared country/filter settings,
+merge and dedup the results. Every search has its own batch quote: reducing the
+number shown does **not** reduce its price. Keep the combined plan within the
+user's authorized budget. `estimatedTotal` is not a complete candidate pool.
 
-1. Verify every returned row against every supported hard filter.
-2. Count rows that pass all supported filters and separately count unsupported fields.
-3. If any hard condition is unverified, use “partial results” or “候选结果（待复核）”,
-   never “fully matched” or “已完成名单”.
+### Legacy Compatibility
 
-Offer one natural refinement after showing results.
-
-See `{baseDir}/references/search-filters.md` for optional filters (language, gender,
-follower cap, contact filter).
-
-### Budget Control (current CLI; mandatory)
-
-Paid search can burn quota fast. Follow these rules on every discovery request:
-
-1. **Default path**: run **exactly one** `easykol search` with
-   `--limit` = requested count (or 20), and all countries in one `--regions`.
-2. **Estimate before you spend**: planned cost ≈ sum of `--limit` across the searches
-   you are about to run (worst case = full pages returned).
-3. **Hard stop — ask the user first** when any of these is true:
-   - planned cost **>** the user's requested result count
-   - planned cost **> 50**
-   - you want **> 3** sub-searches
-   - you want to **re-run / expand** after already searching (new sentence, new country
-     split, higher limit, brand-name variants, etc.)
-   - CLI returns **exit code 8** (session budget / `--limit` soft cap)
-4. Never pass `--confirm-spend` unless the user just approved more spend in this turn.
-5. After you already have enough candidates for the user's N, **stop searching**.
-   Dedup and present; do not keep exploring "to be thorough".
-6. On exit code 8: explain spent vs budget in plain language, offer the current partial
-   shortlist, and ask whether to continue. Do not silently retry.
-
-See `{baseDir}/references/quota-heuristics.md` for CLI session-budget details.
-
-### Multi-Niche Requests
-
-When one request clearly spans **≥2 distinct creator niches** (e.g. "AI creators,
-career/workplace creators, and Study-with-Me creators in Korea"), do **not** cram them
-into a single `--sentence`. A blurry multi-niche description collapses semantic recall —
-you get a shallow, drifting shortlist that under-serves every niche.
-
-Instead run **one `search` per niche**, each with its own focused `--sentence` and the
-**same shared filters** (platform, regions, min-subscribers, avg-min), then merge:
-
-- Split only genuinely different niches. A single niche with several descriptors
-  ("fun, high-energy gaming creators") stays one search.
-- **Countries are not niches** — keep them in shared `--regions` (e.g. `DE,FR,IT`).
-  Do not multiply niches × countries into a cartesian product of searches.
-- **Exclusion clauses are not niches** — "no crypto", "exclude finance" are filters that
-  apply to every sub-search, never a search of their own.
-- After the sub-searches return, **dedup by handle / profile URL** (the same creator can
-  surface under two niches) and present results grouped by niche, or as one merged list
-  with each creator labelled by the niche that matched.
-- Do not call the response “the complete candidate pool” unless the API explicitly
-  provides a complete, paginated dataset and pagination has been exhausted. The search
-  API returns only the current response (maximum 50); `estimatedTotal` from `parse` is
-  an estimate, not a list of candidates.
-- **Quota (mandatory)**: each sub-search bills separately. **Always divide** the user's
-  requested N across niches (e.g. want 30 with 3 niches → three `--limit 10` calls).
-  If niches > 3, or divided limits still sum to more than N / 50, **confirm with the
-  user before running any sub-search**.
+`search-legacy` / `parse-legacy` explicitly use V1. They do not share the V2 search
+contract or support task continuation. `more-words` is also a V1 utility. Do not
+silently use them when V2 returns 404 or a mode-specific request fails; report the
+backend/version mismatch. Existing profile, video, emails, similar and audience
+commands continue using their existing endpoints.
 
 ### Lookalike Discovery
 

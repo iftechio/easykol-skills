@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { SEARCH_COMMANDS } from './search'
 import {
   apiCall,
   apiRequest,
@@ -106,6 +107,7 @@ async function pollTask(
 // ---------- commands ----------
 
 export const API_COMMANDS: CommandDef[] = [
+  ...SEARCH_COMMANDS,
   {
     name: 'doctor',
     summary: 'Check CLI version, config, and API connectivity',
@@ -145,6 +147,9 @@ export const API_COMMANDS: CommandDef[] = [
         hasEmail: Boolean(cfg.email),
         apiBase: base,
         reachable,
+        searchApiVersion: 2,
+        searchModes: ['fast', 'standard', 'beta'],
+        searchApiAvailability: 'not probed; requires a backend with external v2 deployed',
       })
     },
   },
@@ -368,8 +373,8 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   {
-    name: 'parse',
-    summary: 'Preview a search: canonical tags + keywords + estimated total (no charge)',
+    name: 'parse-legacy',
+    summary: 'Legacy V1 preview: canonical tags + keywords + estimated total (no charge)',
     billing: 'free',
     options: [
       { flags: '--sentence <text>', description: 'natural-language search description (required)' },
@@ -388,7 +393,7 @@ export const API_COMMANDS: CommandDef[] = [
   },
   {
     name: 'more-words',
-    summary: 'Suggest more keywords, excluding ones already shown (no charge)',
+    summary: 'Legacy V1 keyword suggestions, excluding ones already shown (no charge)',
     billing: 'free',
     options: [
       { flags: '--sentence <text>', description: 'original search description (required)' },
@@ -408,8 +413,8 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   {
-    name: 'search',
-    summary: 'Run the KOL search and return matching creators (consumes quota)',
+    name: 'search-legacy',
+    summary: 'Legacy V1 synchronous search with per-result billing (explicit opt-in)',
     billing: 'N quota (N = results returned; 0 = free); session budget 50 unless --confirm-spend',
     options: [
       { flags: '--sentence <text>', description: 'natural-language search description (required)' },

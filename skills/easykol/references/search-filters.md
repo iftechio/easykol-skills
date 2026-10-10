@@ -3,33 +3,37 @@
 Parameters for `easykol parse`, `easykol more-words`, and `easykol search`. Confirm
 the live set with `easykol schema <cmd>`.
 
-These flags belong to the synchronous `/intelligent-search` CLI, not Pro mode 7.
-For Pro continuation, read [pro-pagination.md](pro-pagination.md). The current CLI
-has no Pro `NEXT_PAGE` / `sourceTaskId` command; `--limit` is a result limit, not a
-batch multiplier, and cannot exceed 50 even with budget approval.
+V2 supports fast / standard / beta with the same public filter names. Read
+[search-modes.md](search-modes.md) for mode and task semantics. `more-words`,
+`search-legacy` and `parse-legacy` explicitly use V1.
 
-## `search` Required Flags
+## New search flags
 
-| Flag | Example | Notes |
-|------|---------|-------|
-| `--sentence` | `"fitness creators US"` | Natural-language description, ≤500 chars |
-| `--platform` | `YOUTUBE` | `TIKTOK` / `YOUTUBE` / `INSTAGRAM` — one per call |
-| `--regions` | `US,GB` | Comma-separated ISO Alpha-2 codes; at least one. Prefer one multi-country list over one call per country. |
-| `--min-subscribers` | `10000` | Min follower / subscriber count |
-| `--avg-min` | `0` | Min avg views (TT/YT) or avg likes (IG) |
+Only --sentence and --platform are required for a new search. --mode defaults to
+fast. Omit unspecified hard filters; do not invent follower or geography defaults.
 
-## `search` Optional Flags
+| Flag | Meaning |
+|------|---------|
+| --mode | fast / standard / beta |
+| --sentence | Creator requirement, up to 4000 characters |
+| --platform | TIKTOK / YOUTUBE / INSTAGRAM |
+| --regions / --languages | Creator countries / languages, comma separated |
+| --min-subscribers / --max-subscribers | Follower range |
+| --avg-min / --avg-max | Average views (TT/YT), average likes (IG) |
+| --has-contact | Contact record present; not proof of a public/deliverable email |
+| --gender | Creator male / female; not audience gender |
+| --tags / --keywords / --exclude | Canonical tags, keywords and excluded topics |
+| --batches | Default 1, fast/standard max 10, beta exactly 1 |
+| --visual | Beta optional visual screening |
+| --product | Beta product description |
+| --audience / --ideal-influencer | Product audience / creator preference; require --product |
+| --idempotency-key | Stable submission/recovery key |
+| --no-wait / --timeout | Return immediately / polling wait in seconds |
+| --confirm-spend | Use existing user approval to exceed the local session budget |
 
-| Flag | Example | Notes |
-|------|---------|-------|
-| `--limit` | `20` | 1–50, default 20 |
-| `--max-subscribers` | `500000` | Upper follower cap |
-| `--languages` | `en,zh` | BCP-47 language codes |
-| `--avg-max` | `100000` | Upper avg-views/likes cap |
-| `--has-contact` | (flag) | Only creators with a contact email on file |
-| `--gender` | `male` / `female` | Creator gender filter |
-| `--tags` | `"居家健身/Home Fitness"` | Confirmed canonical tags from `parse` output |
-| `--keywords` | `"home workouts,workout at home"` | Confirmed keywords from `parse` / `more-words` |
+There is no V2 search --limit. `task --limit 1–100 --offset N` only reads stored
+rows for free. search-next inherits source parameters and cannot accept replacement
+mode/filter flags. For exact installed options use `easykol schema <command>`.
 
 ## Filter Priority by User Intent
 
@@ -60,8 +64,8 @@ batch multiplier, and cannot exceed 50 even with budget approval.
 
 ## Using `parse` and `more-words`
 
-These are exposed for inspection and debugging. In normal operation `search` runs
-them internally.
+`parse --mode` previews V2 preparation and quote; search obtains this preparation
+automatically. `more-words` is a legacy V1 utility, not part of V2 execution.
 
 ```bash
 # Preview tags + keywords before committing to a search

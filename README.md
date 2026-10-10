@@ -67,12 +67,19 @@ evals/                            # eval suite (TBD)
 
 ## Status
 
-v0.1.1 — discovery, profile, audience, lookalike, contact, and video commands are
-available. The CLI (`cli/`, `@easykol/cli`) wraps the backend's `/external/v1` endpoints.
-Search has a rolling session budget (default 50) and `--limit` soft-cap 30; exceeding
-either needs user-approved `--confirm-spend` (exit code 8). The Skill must preflight
-hard requirements, enforce budget control, and must not claim unsupported audience or
-TikTok Shop metrics are verified. Auth is `ek-api-key` + `ek-api-email`.
+v0.2.0 — `search-v2 --mode fast|standard|beta` defaults to fast and uses
+`/external/v2/intelligent-search`. `parse-v2 --mode` returns preparation + quote;
+`task` reads saved pages for free; `search-next` continues the exact completed task
+serially. Stable idempotency keys and a local request journal recover uncertain
+submissions without creating replacement paid tasks. Search budget uses server
+quotes (default 50 raw quota = 5 task points); finalized refunds reconcile on reads.
+
+`search` / `parse` retain their original V1 names, options and behavior;
+new search modes are additive commands (`search-v2` / `parse-v2`).
+Other creator/profile/audience/email/video commands keep their existing V1 APIs.
+Deploy the external V2 backend before publishing CLI 0.2.0 / refreshing the skill;
+there is no silent V1 fallback. See `skills/easykol/references/search-modes.md`.
+Auth remains `ek-api-key` + `ek-api-email`.
 
 ## License
 

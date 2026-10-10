@@ -9,9 +9,9 @@
       "files": [],
       "expectations": [
         "Infers platform=YOUTUBE, regions=US, min-subscribers=50000",
-        "Runs easykol search directly without asking for clarification",
+        "Runs easykol search-v2 directly without asking for clarification",
         "Presents a readable list (not raw JSON) with name, handle, followers, avg performance",
-        "Does NOT run easykol parse before search"
+        "Does NOT run easykol parse-v2 before search"
       ]
     },
     {
@@ -38,7 +38,7 @@
         "Infers regions=CN",
         "Infers min-subscribers=100000",
         "Infers limit=15",
-        "Runs easykol search directly without asking for clarification"
+        "Runs easykol search-v2 directly without asking for clarification"
       ]
     },
     {
@@ -49,7 +49,7 @@
       "files": [],
       "expectations": [
         "Runs easykol similar --url https://www.tiktok.com/@charlidamelio",
-        "Does NOT run easykol search instead",
+        "Does NOT run easykol search-v2 instead",
         "Tells the user this may take ~30s before starting",
         "Presents results as a readable shortlist"
       ]
@@ -62,7 +62,7 @@
       "files": [],
       "expectations": [
         "Runs easykol similar --url ... --regions US,GB --min-subscribers 50000",
-        "Does NOT run easykol search instead",
+        "Does NOT run easykol search-v2 instead",
         "Applies the region and follower filters as CLI flags"
       ]
     },
@@ -74,7 +74,7 @@
       "files": [],
       "expectations": [
         "Runs easykol kol --url https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
-        "Does NOT run easykol search to find this creator",
+        "Does NOT run easykol search-v2 to find this creator",
         "Reports nickname, follower count, avg performance, language, and email if available",
         "Notes that YouTube creators do not have a region field if relevant"
       ]
@@ -89,7 +89,7 @@
         "Runs easykol audience --url https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
         "Reports age distribution, gender split, and top audience countries",
         "Includes T1/T2/T3 development level context for regions",
-        "Does NOT run easykol kol or easykol search instead"
+        "Does NOT run easykol kol or easykol search-v2 instead"
       ]
     },
     {
@@ -150,7 +150,7 @@
       "expectations": [
         "Runs easykol video --url https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         "Reports title, view count, like count, publish date, author name and follower count",
-        "Does NOT run easykol kol or easykol search instead"
+        "Does NOT run easykol kol or easykol search-v2 instead"
       ]
     },
     {
@@ -237,7 +237,7 @@
       "expected_output": "Handle both tasks: search for the batch, audience command for the specific URL",
       "files": [],
       "expectations": [
-        "Runs easykol search for the batch discovery (asks for region/platform if needed)",
+        "Runs easykol search-v2 for the batch discovery (asks for region/platform if needed)",
         "Runs easykol audience --url https://www.tiktok.com/@beautycreator for the specific account",
         "Does NOT conflate the two tasks — handles them separately"
       ]
@@ -285,7 +285,7 @@
       "expected_output": "Re-run search with adjusted parameters, not ask for all parameters again",
       "files": [],
       "expectations": [
-        "Re-runs easykol search with min-subscribers=20000, keeping regions=US and languages=en",
+        "Re-runs easykol search-v2 with min-subscribers=20000, keeping regions=US and languages=en",
         "Does NOT ask the user to repeat platform and other already-stated parameters",
         "Presents the new results as a fresh shortlist"
       ]
@@ -331,15 +331,15 @@
       "id": 26,
       "category": "discovery",
       "prompt": "帮我在韩国找 KOL：AI 工具类博主、职场办公博主、还有 Study with Me 学习博主，Instagram，粉丝 1 万以上。不要加密货币相关的。",
-      "expected_output": "Recognize ≥2 distinct niches — run one search per niche with shared filters and divided limits, then merge and dedup",
+      "expected_output": "Use one focused V2 search per distinct niche within the combined quoted budget, then merge and dedup",
       "files": [],
       "expectations": [
-        "Recognizes three distinct niches (AI tools, workplace/career, Study-with-Me) and runs a separate easykol search for each, not one combined sentence",
+        "Recognizes three distinct niches (AI tools, workplace/career, Study-with-Me) and runs a separate easykol search-v2 for each, not one combined sentence",
         "Applies the same shared filters to every sub-search (platform=INSTAGRAM, regions=KR, min-subscribers=10000)",
-        "Divides --limit across the three niches (does not use --limit 20/30 on every niche)",
+        "Uses one quoted batch per niche; does not estimate V2 price by displayed --limit",
         "Does NOT create a search for the '不要加密货币' exclusion — treats it as a filter, not a niche",
         "Merges and dedups results by handle / profile URL, presenting them grouped or labelled by niche",
-        "Does NOT pass --confirm-spend without an explicit user approval in this turn"
+        "Uses --confirm-spend only within explicit user authorization; existing approval persists across turns"
       ]
     },
     {
@@ -361,12 +361,12 @@
       "id": 28,
       "category": "budget-control",
       "prompt": "帮我筛选 30 个适合 IFA 展会探展的 YouTube 频道，覆盖德国/法国/意大利/波兰/捷克。",
-      "expected_output": "One YouTube search with regions DE,FR,IT,PL,CZ and limit 30 — no per-country or multi-round expansion without asking",
+      "expected_output": "One fast YouTube batch with regions DE,FR,IT,PL,CZ; present 30 and stop",
       "files": [],
       "expectations": [
-        "Runs a single easykol search (or asks before any multi-search plan)",
+        "Runs a single easykol search-v2 (or asks before any multi-search plan)",
         "Uses regions=DE,FR,IT,PL,CZ (or equivalent one-list form), not five separate country searches",
-        "Uses --limit 30 (or confirms before planning more than 30 total spend)",
+        "Uses default fast and one batch, quotes batch cost rather than --limit 30",
         "Does NOT start a second wave of expanded/brand-name/re-run searches without user confirmation",
         "Does NOT pass --confirm-spend unless the user approved more spend"
       ]
@@ -388,22 +388,22 @@
       "id": 30,
       "category": "account",
       "prompt": "帮我用 EasyKOL 找 10 个美国 YouTube 健身博主。",
-      "expected_output": "Silently refresh CLI/skill first, then search once with limit 10",
+      "expected_output": "Refresh tooling, run one fast V2 batch and present 10 results",
       "files": [],
       "expectations": [
         "Runs easykol upgrade (or npm i -g @easykol/cli@latest + npx skills update easykol -y) before paid search",
-        "Runs a single search with platform=YOUTUBE, regions=US, limit=10",
+        "Runs one default-fast search with platform=YOUTUBE, regions=US; presents 10 without --limit on creation",
         "Does not start multi-round expansion without asking"
       ]
     },
     {
       "id": 31,
       "category": "pro-pagination",
-      "prompt": "继续这个智能搜索 Pro 任务，再来一批。已完成任务 task-1，项目 project-1，TikTok。当前工具明确支持 Pro NEXT_PAGE，预算已批准这一批。",
+      "prompt": "继续这个 Beta 智能搜索任务，再来一批。外部 V2 已完成任务 task-1，TikTok。CLI 0.2.0，预算已批准这一批。",
       "expected_output": "Submit exactly one task-bound Pro page and wait for completion, at most 50 creators.",
       "files": [],
       "expectations": [
-        "Uses mode=7, reason=NEXT_PAGE, sourceTaskId=task-1 and batchCount=1 or omitted",
+        "Reads task-1, then uses search-next --task-id task-1 with a new stable idempotency key; inherits beta/platform/filters",
         "Does not send batchCount=3/5 or run parallel pages",
         "Waits for this page before any continuation and stops after the one authorized page",
         "Uses the configured quote; does not treat a platform price multiplier as a batch multiplier"
@@ -417,7 +417,7 @@
       "files": [],
       "expectations": [
         "Does not turn 150 into batchCount=3 or limit=150",
-        "Preserves exact project/platform/filter context and chains completed sourceTaskId values",
+        "Reads stored pages for free, preserves source context and chains search-next from each completed child task ID",
         "Deduplicates results and stops at 150 unique verified creators, 4 pages, budget limit or exhaustion, whichever happens first",
         "Does not ask again for each page already authorized and does not broaden filters to fill the target"
       ]
@@ -425,11 +425,11 @@
     {
       "id": 33,
       "category": "pro-pagination",
-      "prompt": "我只有仓库里的 easykol CLI，schema --all 只有 search/parse/more-words，没有 next 或 sourceTaskId。帮我翻智能搜索 Pro 的下一页。",
+      "prompt": "我安装的旧版 easykol CLI，schema --all 只有 search/parse/more-words，没有 task 或 search-next。帮我翻智能搜索 Pro 的下一页。",
       "expected_output": "Explain the CLI capability gap without inventing Pro support or charging for a substitute search.",
       "files": [],
       "expectations": [
-        "Explains that CLI search uses a separate synchronous API and is not Pro task continuation",
+        "Recognizes the installed old CLI capability gap; updates tooling and verifies v2 task support, without assuming an existing web/V1 task is a v2 task",
         "Does not invent --batch-count, --source-task-id, or a next command",
         "Does not silently run another paid search or change billing contracts",
         "Offers the Pro UI or supported tooling update, not credential extraction"
@@ -445,6 +445,54 @@
         "Does not create a fresh idempotency key for the uncertain submission",
         "Does not launch the next page while this page is unresolved",
         "Explains how duplicate paid task creation is avoided"
+      ]
+    },
+    {
+      "id": 36,
+      "category": "search-modes",
+      "prompt": "帮我快速找美国 TikTok 游戏博主，先给 20 个就好。",
+      "expected_output": "One default fast V2 batch and readable shortlist",
+      "files": [],
+      "expectations": [
+        "States fast as default, keeps regions in one list",
+        "Uses server batch quote, not --limit 20 pricing",
+        "Keeps task ID; reads stored pages before paying for another batch"
+      ]
+    },
+    {
+      "id": 37,
+      "category": "search-modes",
+      "prompt": "普通模式帮我找英国 Instagram 健身博主。",
+      "expected_output": "Use standard explicitly",
+      "files": [],
+      "expectations": [
+        "Uses search-v2 --mode standard",
+        "Does not silently use fast or beta",
+        "Checks returned effectiveParameters and task state"
+      ]
+    },
+    {
+      "id": 38,
+      "category": "search-modes",
+      "prompt": "Beta 模式推广跑步耳机，面向 25–34 岁女性消费者，找测评运动装备的 YouTube 博主。",
+      "expected_output": "Use beta product requirements without inventing creator demographic hard filters",
+      "files": [],
+      "expectations": [
+        "Uses --mode beta --product and --audience",
+        "Does not set creator gender/age from consumer audience",
+        "One batch with optional visual only if requested"
+      ]
+    },
+    {
+      "id": 39,
+      "category": "recovery",
+      "prompt": "搜索返回 RESULT_READY，但 settlement.pending=true。可以说已完成退款吗？",
+      "expected_output": "Read results but keep settlement pending",
+      "files": [],
+      "expectations": [
+        "Does not call RESULT_READY completed",
+        "Does not declare a refund final until pending=false",
+        "Polls task for free, never creates another search"
       ]
     }
   ]

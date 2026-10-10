@@ -2,14 +2,16 @@
 
 EasyKOL bills against your membership quota (same credits as the web app).
 
-## Pro is a different billing contract
+## V2 search billing
 
-This table describes the current CLI's external API, not Smart Search Pro (`mode=7`).
-For Pro use [pro-pagination.md](pro-pagination.md): one request means one batch of at
-most 50, priced by the Pro quote with existing platform/advanced-filter multipliers.
-Do not estimate Pro cost as `--limit`, and do not apply Pro's batch price to the CLI.
-The CLI's soft cap and rolling budget below do not change the hard maximum of 50
-results per synchronous call.
+`search-v2` and `search-next` reserve the server quote (same rules as the web app),
+not N displayed creators. 1 task point = 10 raw quota. Currently a normal batch
+usually reserves 1 point; selected advanced filters multiply it to 2. Read quote
+rather than hard-coding prices. Zero delivered results are refunded in settlement;
+a refund is final only when settlement.pending=false.
+
+`task` reads stored pages for free. Changing offset/limit does not create a batch.
+`search` explicitly retains the V1 per-result contract (N raw quota).
 
 ## Cost per Command
 
@@ -19,50 +21,34 @@ results per synchronous call.
 | `auth` | free | Saves API key and email |
 | `quota` | free | Shows remaining credits |
 | `schema` / `exit-codes` | free | CLI self-description |
-| `parse` | free | Preview tags + keywords + estimated total |
+| `parse-v2` | free | Mode-specific preparation and task-point quote |
 | `more-words` | free | More keyword suggestions |
-| `search` | **N quota** | N = creators returned; **0 results = free** |
+| `search-v2` / `search-next` | **server batch quote** | task-point reservation; excess/zero-result refunds at settlement |
+| `task` | free | Existing task and stored pages |
+| `search` | **N raw quota** | Original V1 contract |
 | `kol` | 1 per 5 calls | Accumulates; charged every 5th call |
 | `video` | 1 per 5 calls | Accumulates; charged every 5th call |
 | `similar` | **10 quota** | Per call, regardless of result count |
 | `emails` | **1 per 5 URLs** | Rounded up; 1 URL = 1 quota, 6 URLs = 2 quota |
 | `audience` | **20 quota** | New analysis only; free if cached within 30 days |
 
-## Search Session Budget (CLI hard guard)
+## Search Session Budget
 
-The CLI tracks rolling search spend in `~/.easykol/search-session.json` (2h window).
+The shared guard uses raw quota, default **50 quota = 5 task points** per 2-hour
+window (`EASYKOL_SEARCH_SESSION_BUDGET`). V2 converts quoted points ×10, records a
+reservation keyed by request identity, and reconciles actual net cost on finalized
+task reads. Retrying the same request does not add another reservation. Pending
+refunds conservatively remain reserved. Saved request files live in
+`~/.easykol/search-tasks/`; do not delete them while submission outcome is uncertain.
 
-| Rule | Default |
-|------|---------|
-| Session budget | **50** quota (`EASYKOL_SEARCH_SESSION_BUDGET` overrides) |
-| Single `--limit` | **≤ 30** without `--confirm-spend` |
-| Exceed budget / limit | exit code **8** — stop and ask the user |
+V1 search retains its limit soft cap of 30 and hard max of 50. These limits
+are not V2 pricing rules. V2 uses batchCount, and reading stored rows is free.
 
-Planned cost for the guard uses `--limit` (worst case). After success, actual spend
-is `total` results returned.
-
-`--confirm-spend` is allowed **only after the user explicitly approves** more spend.
-Never invent approval.
-
-## Agent Rules
-
-- **Do not run `parse` before `search` by default.** The `/intelligent-search` backend
-  handles tag/keyword selection internally. Only use `parse` when the user explicitly
-  wants to inspect tags, or for debugging.
-- Prefer **one** `search` with `--limit` = the user's requested count (cap 30).
-- Multi-country → one `--regions` list, not one call per country.
-- Multi-niche → divide `--limit` across niches; confirm if planned total > requested N
-  or > 50, or if niches > 3.
-- Never re-run a near-duplicate search to "improve" results without user confirmation.
-- `search` returning **zero results is not charged**.
-- `audience` costs 20 quota for a new analysis; cache hit within 30 days is free.
-- On **exit code 3** (quota exhausted): stop immediately, tell the user, share
-  `action.url` if the CLI returned one.
-- On **exit code 8** (session budget): stop, show spent vs budget, ask whether to
-  continue; only then retry with `--confirm-spend`.
-- `kol` and `video` use accumulate billing — you may call them a few times before
-  quota is deducted. Do not rely on this for cost planning; treat each call as
-  potentially costing 1 quota.
+Exit 8 means the proposed spend exceeds the guard. Explain the quote and current
+spend, and use --confirm-spend only with existing explicit user authorization.
+Authorization persists across necessary stages and turns within the approved
+scope; do not ask for the same permission repeatedly. Never silently expand scope.
+On quota exhaustion (exit 3), stop paid work and report the returned top-up action.
 
 ## Checking Quota
 

@@ -1,11 +1,11 @@
 # Search Filters
 
-Parameters for `easykol parse`, `easykol more-words`, and `easykol search`. Confirm
+Parameters for `easykol parse-v2`, `easykol more-words`, and `easykol search-v2`. Confirm
 the live set with `easykol schema <cmd>`.
 
 V2 supports fast / standard / beta with the same public filter names. Read
 [search-modes.md](search-modes.md) for mode and task semantics. `more-words`,
-`search-legacy` and `parse-legacy` explicitly use V1.
+`search` and `parse` explicitly use V1.
 
 ## New search flags
 
@@ -62,19 +62,19 @@ mode/filter flags. For exact installed options use `easykol schema <command>`.
 | `--max-avg-likes` | Max avg likes (IG) |
 | `--dedup-days` | Skip creators seen in past N days (default 3, 0 = off) |
 
-## Using `parse` and `more-words`
+## Using `parse-v2` and legacy `more-words`
 
-`parse --mode` previews V2 preparation and quote; search obtains this preparation
+`parse-v2 --mode` previews V2 preparation and quote; search obtains this preparation
 automatically. `more-words` is a legacy V1 utility, not part of V2 execution.
 
 ```bash
 # Preview tags + keywords before committing to a search
-easykol parse --sentence "fitness creators US" --platform YOUTUBE
+easykol parse-v2 --sentence "fitness creators US" --platform YOUTUBE
 
 # Get more keyword suggestions, excluding what you already have
 easykol more-words --sentence "fitness creators US" --platform YOUTUBE \
   --exclude "home workouts,home fitness"
 ```
 
-Use `parse` output (`canonicalTags`, `keywords`) to populate `--tags` and `--keywords`
-in a subsequent `search` call if you want to steer the results.
+Use `parse-v2` output (`canonicalTags`, `keywords`) to populate `--tags` and `--keywords`
+in a subsequent `search-v2` call if you want to steer the results.

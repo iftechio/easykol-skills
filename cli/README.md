@@ -160,3 +160,23 @@ easykol schema --all      # 完整命令树
 easykol schema search     # 单个命令的参数
 easykol exit-codes        # 退出码含义
 ```
+
+## Additional V2 search modes (CLI 0.2.0)
+
+The original `search` and `parse` commands above retain their V1 contract.
+Use the new commands explicitly for fast, standard or beta asynchronous search:
+
+```bash
+easykol search-v2 --mode fast --platform TIKTOK --sentence "US gaming creators" --regions US
+easykol search-v2 --mode standard --platform YOUTUBE --sentence "Running reviewers"
+easykol search-v2 --mode beta --platform INSTAGRAM --sentence "Sports creators" --product "Running headphones"
+easykol parse-v2 --mode fast --platform TIKTOK --sentence "US gaming creators"
+easykol task --task-id TASK_ID --offset 0 --limit 100
+easykol search-next --task-id COMPLETED_TASK_ID
+```
+
+V2 requires the deployed external V2 backend; default mode is fast. The CLI
+prepares/quotes before paid submission, persists the idempotency key for recovery,
+and bills by quoted batches. Stored-page queries are free. See
+[the V2 reference](../skills/easykol/references/search-modes.md) for recovery and
+settlement rules. Missing V2 never silently submits a paid V1 request.

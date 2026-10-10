@@ -9,9 +9,9 @@
       "files": [],
       "expectations": [
         "Infers platform=YOUTUBE, regions=US, min-subscribers=50000",
-        "Runs easykol search directly without asking for clarification",
+        "Runs easykol search-v2 directly without asking for clarification",
         "Presents a readable list (not raw JSON) with name, handle, followers, avg performance",
-        "Does NOT run easykol parse before search"
+        "Does NOT run easykol parse-v2 before search"
       ]
     },
     {
@@ -38,7 +38,7 @@
         "Infers regions=CN",
         "Infers min-subscribers=100000",
         "Infers limit=15",
-        "Runs easykol search directly without asking for clarification"
+        "Runs easykol search-v2 directly without asking for clarification"
       ]
     },
     {
@@ -49,7 +49,7 @@
       "files": [],
       "expectations": [
         "Runs easykol similar --url https://www.tiktok.com/@charlidamelio",
-        "Does NOT run easykol search instead",
+        "Does NOT run easykol search-v2 instead",
         "Tells the user this may take ~30s before starting",
         "Presents results as a readable shortlist"
       ]
@@ -62,7 +62,7 @@
       "files": [],
       "expectations": [
         "Runs easykol similar --url ... --regions US,GB --min-subscribers 50000",
-        "Does NOT run easykol search instead",
+        "Does NOT run easykol search-v2 instead",
         "Applies the region and follower filters as CLI flags"
       ]
     },
@@ -74,7 +74,7 @@
       "files": [],
       "expectations": [
         "Runs easykol kol --url https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
-        "Does NOT run easykol search to find this creator",
+        "Does NOT run easykol search-v2 to find this creator",
         "Reports nickname, follower count, avg performance, language, and email if available",
         "Notes that YouTube creators do not have a region field if relevant"
       ]
@@ -89,7 +89,7 @@
         "Runs easykol audience --url https://www.youtube.com/channel/UCo3m9supEHL8z2nTQaIBs6g",
         "Reports age distribution, gender split, and top audience countries",
         "Includes T1/T2/T3 development level context for regions",
-        "Does NOT run easykol kol or easykol search instead"
+        "Does NOT run easykol kol or easykol search-v2 instead"
       ]
     },
     {
@@ -150,7 +150,7 @@
       "expectations": [
         "Runs easykol video --url https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         "Reports title, view count, like count, publish date, author name and follower count",
-        "Does NOT run easykol kol or easykol search instead"
+        "Does NOT run easykol kol or easykol search-v2 instead"
       ]
     },
     {
@@ -237,7 +237,7 @@
       "expected_output": "Handle both tasks: search for the batch, audience command for the specific URL",
       "files": [],
       "expectations": [
-        "Runs easykol search for the batch discovery (asks for region/platform if needed)",
+        "Runs easykol search-v2 for the batch discovery (asks for region/platform if needed)",
         "Runs easykol audience --url https://www.tiktok.com/@beautycreator for the specific account",
         "Does NOT conflate the two tasks — handles them separately"
       ]
@@ -285,7 +285,7 @@
       "expected_output": "Re-run search with adjusted parameters, not ask for all parameters again",
       "files": [],
       "expectations": [
-        "Re-runs easykol search with min-subscribers=20000, keeping regions=US and languages=en",
+        "Re-runs easykol search-v2 with min-subscribers=20000, keeping regions=US and languages=en",
         "Does NOT ask the user to repeat platform and other already-stated parameters",
         "Presents the new results as a fresh shortlist"
       ]
@@ -334,7 +334,7 @@
       "expected_output": "Use one focused V2 search per distinct niche within the combined quoted budget, then merge and dedup",
       "files": [],
       "expectations": [
-        "Recognizes three distinct niches (AI tools, workplace/career, Study-with-Me) and runs a separate easykol search for each, not one combined sentence",
+        "Recognizes three distinct niches (AI tools, workplace/career, Study-with-Me) and runs a separate easykol search-v2 for each, not one combined sentence",
         "Applies the same shared filters to every sub-search (platform=INSTAGRAM, regions=KR, min-subscribers=10000)",
         "Uses one quoted batch per niche; does not estimate V2 price by displayed --limit",
         "Does NOT create a search for the '不要加密货币' exclusion — treats it as a filter, not a niche",
@@ -364,7 +364,7 @@
       "expected_output": "One fast YouTube batch with regions DE,FR,IT,PL,CZ; present 30 and stop",
       "files": [],
       "expectations": [
-        "Runs a single easykol search (or asks before any multi-search plan)",
+        "Runs a single easykol search-v2 (or asks before any multi-search plan)",
         "Uses regions=DE,FR,IT,PL,CZ (or equivalent one-list form), not five separate country searches",
         "Uses default fast and one batch, quotes batch cost rather than --limit 30",
         "Does NOT start a second wave of expanded/brand-name/re-run searches without user confirmation",
@@ -466,7 +466,7 @@
       "expected_output": "Use standard explicitly",
       "files": [],
       "expectations": [
-        "Uses search --mode standard",
+        "Uses search-v2 --mode standard",
         "Does not silently use fast or beta",
         "Checks returned effectiveParameters and task state"
       ]

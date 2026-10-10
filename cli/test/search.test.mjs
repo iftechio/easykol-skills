@@ -12,7 +12,8 @@ async function harness(t, options = {}) {
     tasks = new Map(),
     byKey = new Map()
   let charges = 0,
-    uncertain = options.uncertain
+    uncertain = options.uncertain,
+    partial = options.partial
   const server = createServer(async (req, res) => {
     let raw = ''
     for await (const chunk of req) raw += chunk
@@ -21,15 +22,43 @@ async function harness(t, options = {}) {
     requests.push({ method: req.method, path: url.pathname, body })
     res.setHeader('content-type', 'application/json')
     const send = (data) =>
-      res.end(JSON.stringify({ statusCode: 200, error: null, message: 'Success', data }))
+      res.end(
+        JSON.stringify({
+          statusCode: 200,
+          error: null,
+          message: 'Success',
+          data,
+        }),
+      )
     if (options.unavailable) {
       res.statusCode = 404
       return res.end('{"message":"Not found"}')
     }
+    if (url.pathname === '/external/v1/intelligent-search/parse')
+      return send({
+        canonicalTags: [{ name: 'Gaming' }],
+        keywords: [],
+        estimatedTotal: 123,
+      })
+    if (url.pathname === '/external/v1/intelligent-search') {
+      charges++
+      return send({
+        total: 2,
+        data: [{ nickname: 'Legacy one' }, { nickname: 'Legacy two' }],
+      })
+    }
     if (url.pathname.endsWith('/parse'))
       return send({
-        parameters: { ...body, canonicalTags: [], keywords: [], expandedQuery: body.sentence },
-        quote: { unit: 'taskPoints', reserved: options.quote ?? body.batchCount ?? 1 },
+        parameters: {
+          ...body,
+          canonicalTags: [],
+          keywords: [],
+          expandedQuery: body.sentence,
+        },
+        quote: {
+          unit: 'taskPoints',
+          reserved: options.quote ?? body.batchCount ?? 1,
+        },
       })
     if (req.method === 'POST') {
       let task = byKey.get(body.idempotencyKey)
@@ -57,6 +86,13 @@ async function harness(t, options = {}) {
         res.statusCode = 500
         return res.end('{"message":"lost response"}')
       }
+      if (partial) {
+        partial = false
+        res.writeHead(200)
+        res.write('{"data":')
+        setTimeout(() => res.destroy(), 10)
+        return
+      }
       return send(task)
     }
     return send(tasks.get(url.pathname.split('/').at(-1)))
@@ -65,15 +101,19 @@ async function harness(t, options = {}) {
   const base = `http://127.0.0.1:${server.address().port}`
   writeFileSync(
     join(dir, 'config.json'),
-    JSON.stringify({ apiKey: 'test-key-only', email: 'test@example.com', apiBase: base }),
+    JSON.stringify({
+      apiKey: 'test-key-only',
+      email: 'test@example.com',
+      apiBase: base,
+    }),
   )
   t.after(async () => {
     await new Promise((resolve) => server.close(resolve))
     rmSync(dir, { recursive: true, force: true })
   })
-  const run = (args) =>
+  const run = (args, entryArgs = ['dist/index.js']) =>
     new Promise((resolve) => {
-      const child = spawn(process.execPath, ['dist/index.js', ...args], {
+      const child = spawn(process.execPath, [...entryArgs, ...args], {
         env: {
           ...process.env,
           EASYKOL_CONFIG_DIR: dir,
@@ -97,7 +137,7 @@ async function harness(t, options = {}) {
   }
 }
 const search = [
-  'search',
+  'search-v2',
   '--platform',
   'TIKTOK',
   '--sentence',
@@ -117,7 +157,7 @@ test('default fast prepares v2, quotes one batch, and recovers a completed task 
   assert.equal(h.requests[0].path, '/external/v2/intelligent-search/parse')
   assert.equal(h.requests[1].body.idempotencyKey, 'request-001')
   assert.equal(h.spent(), 10)
-  const retry = await h.run(['search', '--idempotency-key', 'request-001', '--no-wait'])
+  const retry = await h.run(['search-v2', '--idempotency-key', 'request-001', '--no-wait'])
   assert.equal(retry.json.data.taskId, first.json.data.taskId)
   assert.equal(h.charges(), 1)
   assert.equal(h.requests.filter((r) => r.method === 'POST').length, 2)
@@ -142,11 +182,110 @@ test('uncertain paid submission recovers with the persisted original key/body an
   const first = await h.run(search)
   assert.equal(first.code, 5)
   assert.match(first.json.error.message, /request-001/)
-  const recovered = await h.run(['search', '--idempotency-key', 'request-001', '--no-wait'])
+  const recovered = await h.run(['search-v2', '--idempotency-key', 'request-001', '--no-wait'])
   assert.equal(recovered.code, 0)
   assert.equal(h.charges(), 1)
   assert.equal(h.spent(), 10)
   assert.deepEqual(h.requests[1].body, h.requests[2].body)
+})
+test('a paid response interrupted after headers retains the recovery key and reservation', async (t) => {
+  const h = await harness(t, { partial: true })
+  const first = await h.run(search)
+  assert.equal(first.code, 5)
+  assert.match(first.json.error.message, /uncertain.*request-001/)
+  const recovered = await h.run(['search-v2', '--idempotency-key', 'request-001', '--no-wait'])
+  assert.equal(recovered.code, 0)
+  assert.equal(h.charges(), 1)
+  assert.equal(h.spent(), 10)
+})
+
+test('original parse and search keep their V1 endpoint, options, result shape and per-result budget', async (t) => {
+  const h = await harness(t)
+  const parsed = await h.run([
+    'parse',
+    '--platform',
+    'TIKTOK',
+    '--sentence',
+    'Gaming',
+    '--regions',
+    'US',
+  ])
+  assert.equal(parsed.code, 0)
+  assert.deepEqual(parsed.json.data, {
+    canonicalTags: [{ name: 'Gaming' }],
+    keywords: [],
+    estimatedTotal: 123,
+  })
+  const found = await h.run([
+    'search',
+    '--platform',
+    'TIKTOK',
+    '--sentence',
+    'Gaming',
+    '--regions',
+    'US',
+    '--min-subscribers',
+    '1000',
+    '--avg-min',
+    '500',
+    '--limit',
+    '2',
+    '--tags',
+    'Gaming',
+  ])
+  assert.equal(found.code, 0)
+  assert.deepEqual(found.json.data, {
+    total: 2,
+    data: [{ nickname: 'Legacy one' }, { nickname: 'Legacy two' }],
+  })
+  assert.deepEqual(h.requests, [
+    {
+      method: 'POST',
+      path: '/external/v1/intelligent-search/parse',
+      body: { sentence: 'Gaming', platform: 'TIKTOK', regions: ['US'] },
+    },
+    {
+      method: 'POST',
+      path: '/external/v1/intelligent-search',
+      body: {
+        sentence: 'Gaming',
+        platform: 'TIKTOK',
+        limit: 2,
+        canonicalTags: ['Gaming'],
+        regions: ['US'],
+        minSubscribers: 1000,
+        avgMin: 500,
+      },
+    },
+  ])
+  assert.equal(h.spent(), 2)
+})
+
+test('shared HTTP defaults leave V1 without a new deadline and apply deadlines only to V2', async (t) => {
+  const h = await harness(t)
+  const result = await h.run(
+    [],
+    [
+      '--import',
+      'tsx',
+      '--input-type=module',
+      '-e',
+      `
+    import core from './src/core.ts';
+    const { apiCall } = core;
+    const signals = [];
+    globalThis.fetch = async (_url, opts) => {
+      signals.push(Boolean(opts.signal));
+      return new Response('{}');
+    };
+    await apiCall({ path: '/video' });
+    await apiCall({ version: 2, path: '/intelligent-search/task' });
+    process.stdout.write(JSON.stringify(signals));
+  `,
+    ],
+  )
+  assert.equal(result.code, 0, result.err)
+  assert.deepEqual(result.json, [false, true])
 })
 test('poll timeout retains task identity; task queries never create paid work', async (t) => {
   const h = await harness(t, { processing: true })

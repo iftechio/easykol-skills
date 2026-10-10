@@ -50,7 +50,7 @@ authenticate).
 
 The CLI documents itself — use it rather than memorising parameters:
 
-- **Command schema**: `easykol schema <cmd>` (e.g. `schema kol`, `schema search`)
+- **Command schema**: `easykol schema <cmd>` (e.g. `schema kol`, `schema search-v2`)
 - **Full command tree**: `easykol schema --all`
 - **Exit codes**: `easykol exit-codes`
 - **Diagnostics**: `easykol doctor`
@@ -60,7 +60,7 @@ The CLI documents itself — use it rather than memorising parameters:
 | User intent | Command |
 |-------------|---------|
 | Read a search task / continue its next batch | `task --task-id` / `search-next --task-id` (same source mode and filters) |
-| Find creators matching a description | `search --mode fast|standard|beta` (default fast); `parse --mode` for optional preview |
+| Find creators matching a description | `search-v2 --mode fast|standard|beta` (default fast); `parse-v2 --mode` for optional preview |
 | Find creators similar to a URL | `similar` |
 | Get a creator's profile by URL | `kol` |
 | Get a creator's audience breakdown | `audience` |
@@ -132,14 +132,14 @@ For existing search tasks preserve their mode and filters; read
    missing platform once. Put all target countries in one `--regions` list; omit
    filters the user did not specify rather than inventing thresholds. Consumer
    target age/gender belongs to Beta `--product` / `--audience`, not creator filters.
-3. Submit one `search` by default. The CLI obtains a free mode-specific preparation
-   and quote before the paid request. `parse` is optional for showing / editing the
+3. Submit one `search-v2` by default. The CLI obtains a free mode-specific preparation
+   and quote before the paid request. `parse-v2` is optional for showing / editing the
    plan, not a required user confirmation stage. The user's existing authorization
    applies to all necessary steps within their stated scope and budget.
-4. Keep the returned `taskId` and `idempotencyKey`. `search` waits for readable
+4. Keep the returned `taskId` and `idempotencyKey`. `search-v2` waits for readable
    results by default; `--no-wait` returns immediately. A timeout is not a failed
    search. Resume `task --task-id <id>` for free; if submission outcome is uncertain,
-   recover `search --idempotency-key <original-key>` from the saved local journal.
+   recover `search-v2 --idempotency-key <original-key>` from the saved local journal.
    Never start a replacement paid search because polling timed out.
 5. Present the requested number from the readable results, dedup by `kolId` / URL,
    and verify supported hard conditions against returned fields. Missing metrics,
@@ -184,7 +184,7 @@ user's authorized budget. `estimatedTotal` is not a complete candidate pool.
 
 ### Legacy Compatibility
 
-`search-legacy` / `parse-legacy` explicitly use V1. They do not share the V2 search
+`search` / `parse` keep their original V1 names, options and behavior. They do not share the V2 search
 contract or support task continuation. `more-words` is also a V1 utility. Do not
 silently use them when V2 returns 404 or a mode-specific request fails; report the
 backend/version mismatch. Existing profile, video, emails, similar and audience

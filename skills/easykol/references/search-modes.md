@@ -5,7 +5,7 @@ all three modes; no separate skill or credential is required.
 
 ## Call chain
 
-User requirement → CLI `search --mode` → free POST `/external/v2/intelligent-search/parse`
+User requirement → CLI `search-v2 --mode` → free POST `/external/v2/intelligent-search/parse`
 → prepared parameters + task-point quote → quote-based local budget guard
 → POST `/external/v2/intelligent-search` with stable `idempotencyKey`
 → atomic quota reservation and WEB_SEARCH task creation → existing queue/worker
@@ -26,10 +26,10 @@ require `--product`; consumer demographics never become creator gender/age filte
 ## Commands
 
 ```sh
-easykol search --mode fast --platform TIKTOK --sentence 'Gaming creators in US' --regions US
-easykol search --mode standard --platform INSTAGRAM --sentence 'Fitness creators in UK' --regions GB
-easykol search --mode beta --platform YOUTUBE --sentence 'Running equipment reviewers' --product 'Running headphones' --audience 'Runners'
-easykol parse --mode fast --platform TIKTOK --sentence 'Gaming creators in US'
+easykol search-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US' --regions US
+easykol search-v2 --mode standard --platform INSTAGRAM --sentence 'Fitness creators in UK' --regions GB
+easykol search-v2 --mode beta --platform YOUTUBE --sentence 'Running equipment reviewers' --product 'Running headphones' --audience 'Runners'
+easykol parse-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US'
 easykol task --task-id TASK_ID --offset 0 --limit 100
 easykol search-next --task-id COMPLETED_TASK_ID --idempotency-key campaign-next-002
 ```
@@ -60,7 +60,7 @@ whole quoted batch.
 The CLI saves exact request bodies and keys in ~/.easykol/search-tasks/ before
 submitting. With a task ID, keep reading that task. If submission timed out before
 an ID was received, run the same command with its printed `--idempotency-key`;
-`search` can recover from the journal without repeating platform/sentence flags.
+`search-v2` can recover from the journal without repeating platform/sentence flags.
 The same key/body reuses the task even after completion; changed parameters return
 409. The key is scoped to the authenticated user and must contain 8–128 characters.
 Never recover by making a new key or switching to V1.
@@ -69,3 +69,6 @@ A continuation inherits the exact source params and batch count. Wait for
 COMPLETED; follow the latest returned task ID. On 409 for an existing child, read
 that child and continue from it. A failed child can be replaced with a newly
 authorized continuation from its completed parent; refund status remains separate.
+
+Original `search` / `parse` commands retain their V1 names, options and output.
+The Skill chooses `search-v2` explicitly; there is no automatic command migration.

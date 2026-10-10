@@ -1,6 +1,6 @@
 # Async Tasks
 
-`search`, `search-next`, `similar`, `emails`, and `audience` are asynchronous. Search
+`search-v2`, `search-next`, `similar`, `emails`, and `audience` are asynchronous. Search
 recovery and result-page semantics are specified in [search-modes.md](search-modes.md).
 Do not resubmit search on polling timeout; read the existing task ID. The CLI handles
 polling internally — the agent does not need to manage task IDs or poll manually.

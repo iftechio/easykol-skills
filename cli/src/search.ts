@@ -124,7 +124,10 @@ const inputOptions: OptionDef[] = [
     flags: '--mode <mode>',
     description: 'fast (default) | standard | beta; never silently substituted',
   },
-  { flags: '--platform <p>', description: 'TIKTOK | YOUTUBE | INSTAGRAM (required)' },
+  {
+    flags: '--platform <p>',
+    description: 'TIKTOK | YOUTUBE | INSTAGRAM (required)',
+  },
   {
     flags: '--sentence <text>',
     description: 'creator search requirement (required for a new search)',
@@ -133,12 +136,24 @@ const inputOptions: OptionDef[] = [
     flags: '--batches <n>',
     description: '1–10 (default 1); beta permits one batch per serial request',
   },
-  { flags: '--regions <list>', description: 'creator country codes, comma separated' },
-  { flags: '--languages <list>', description: 'creator language codes, comma separated' },
+  {
+    flags: '--regions <list>',
+    description: 'creator country codes, comma separated',
+  },
+  {
+    flags: '--languages <list>',
+    description: 'creator language codes, comma separated',
+  },
   { flags: '--min-subscribers <n>', description: 'minimum followers' },
   { flags: '--max-subscribers <n>', description: 'maximum followers' },
-  { flags: '--avg-min <n>', description: 'minimum average views (TT/YT) or likes (IG)' },
-  { flags: '--avg-max <n>', description: 'maximum average views (TT/YT) or likes (IG)' },
+  {
+    flags: '--avg-min <n>',
+    description: 'minimum average views (TT/YT) or likes (IG)',
+  },
+  {
+    flags: '--avg-max <n>',
+    description: 'maximum average views (TT/YT) or likes (IG)',
+  },
   { flags: '--tags <list>', description: 'explicit canonical tags' },
   { flags: '--keywords <list>', description: 'explicit keywords' },
   { flags: '--exclude <list>', description: 'excluded topics' },
@@ -146,8 +161,14 @@ const inputOptions: OptionDef[] = [
   { flags: '--gender <g>', description: 'creator gender male | female' },
   { flags: '--visual', description: 'enable visual screening (beta only)' },
   { flags: '--product <text>', description: 'product description (beta only)' },
-  { flags: '--audience <text>', description: 'product target audience; requires --product' },
-  { flags: '--ideal-influencer <text>', description: 'creator requirements; requires --product' },
+  {
+    flags: '--audience <text>',
+    description: 'product target audience; requires --product',
+  },
+  {
+    flags: '--ideal-influencer <text>',
+    description: 'creator requirements; requires --product',
+  },
 ]
 const waitOptions: OptionDef[] = [
   { flags: '--no-wait', description: 'return the task immediately' },
@@ -192,7 +213,10 @@ async function deliver(entry: Journal, initial: any, opts: any) {
     await new Promise((resolve) =>
       setTimeout(resolve, Math.min(3000, Math.max(0, deadline - Date.now()))),
     )
-    const r = await apiCall({ version: 2, path: `${path}/${encodeURIComponent(task.taskId)}` })
+    const r = await apiCall({
+      version: 2,
+      path: `${path}/${encodeURIComponent(task.taskId)}`,
+    })
     if (!r.ok)
       fail(
         EXIT.NETWORK,
@@ -205,7 +229,10 @@ async function deliver(entry: Journal, initial: any, opts: any) {
     ...task,
     idempotencyKey: entry.key,
     ...(opts.wait !== false && !task.resultsReady && !['COMPLETED', 'FAILED'].includes(task.status)
-      ? { pollingTimedOut: true, resume: `easykol task --task-id ${task.taskId}` }
+      ? {
+          pollingTimedOut: true,
+          resume: `easykol task --task-id ${task.taskId}`,
+        }
       : {}),
   })
 }
@@ -213,7 +240,12 @@ async function submit(entry: Journal, opts: any) {
   number(opts.timeout, '--timeout', 120)
   reserveSearchTaskBudget(entry.identity, entry.quotedQuota, Boolean(opts.confirmSpend))
   save(entry) // Persist the exact body BEFORE the paid request, including an uncertain response.
-  const r = await apiCall({ version: 2, method: 'POST', path: entry.path, body: entry.body })
+  const r = await apiCall({
+    version: 2,
+    method: 'POST',
+    path: entry.path,
+    body: entry.body,
+  })
   if (!r.ok) {
     if (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429)
       reconcileSearchTaskBudget(entry.identity, 0)
@@ -225,7 +257,7 @@ async function submit(entry: Journal, opts: any) {
     if (r.status === 404)
       fail(
         EXIT.PARAMS,
-        'External search v2 is unavailable. Deploy the v2 backend first; legacy commands are explicit opt-ins.',
+        'External search v2 is unavailable. Deploy the v2 backend first; no automatic V1 fallback.',
       )
     failHttp(loadConfig().apiBase || DEFAULT_API_BASE, r)
   }
@@ -242,7 +274,7 @@ async function submit(entry: Journal, opts: any) {
 
 export const SEARCH_COMMANDS: CommandDef[] = [
   {
-    name: 'parse',
+    name: 'parse-v2',
     summary: 'Prepare a mode-specific search and obtain a task-point quote',
     billing: 'free',
     options: inputOptions,
@@ -259,7 +291,7 @@ export const SEARCH_COMMANDS: CommandDef[] = [
     },
   },
   {
-    name: 'search',
+    name: 'search-v2',
     summary: 'Create a fast/standard/beta search task (default fast)',
     billing: 'server quote per batch; zero delivered results refunded after settlement',
     options: [...inputOptions, ...paidOptions],

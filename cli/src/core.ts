@@ -98,7 +98,7 @@ export interface RawResult {
 
 interface CallOptions {
   method?: string
-  path: string // relative to /external/v1
+  path: string // relative to /external/v1, or /external/v2 when explicitly selected
   body?: unknown
   query?: Record<string, string | undefined>
   version?: 1 | 2
@@ -133,13 +133,22 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
         'content-type': 'application/json',
       },
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000),
+      // Preserve V1's existing timeout behavior. Only V2 defaults to a request deadline.
+      ...(opts.timeoutMs !== undefined || opts.version === 2
+        ? { signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000) }
+        : {}),
     })
   } catch (e: any) {
     return { ok: false, status: 0, json: null, networkError: e?.message || String(e) }
   }
 
-  const text = await res.text()
+  let text: string
+  try {
+    text = await res.text()
+  } catch (e: any) {
+    if (opts.version !== 2) throw e
+    return { ok: false, status: 0, json: null, networkError: e?.message || String(e) }
+  }
   let json: any = null
   try {
     json = text ? JSON.parse(text) : null

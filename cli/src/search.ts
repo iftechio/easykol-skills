@@ -84,6 +84,10 @@ export function searchInput(opts: any) {
   const platform = String(required(opts.platform, '--platform')).toUpperCase()
   if (!['TIKTOK', 'YOUTUBE', 'INSTAGRAM'].includes(platform))
     fail(EXIT.PARAMS, '--platform must be TIKTOK|YOUTUBE|INSTAGRAM')
+  if (opts.hasTkShop && platform !== 'TIKTOK')
+    fail(EXIT.PARAMS, '--has-tk-shop requires --platform TIKTOK')
+  if (opts.gender && !['male', 'female'].includes(opts.gender))
+    fail(EXIT.PARAMS, '--gender must be male|female')
   const batchCount = number(opts.batches, '--batches', 1)!
   if (
     !Number.isInteger(batchCount) ||
@@ -91,6 +95,12 @@ export function searchInput(opts: any) {
     batchCount > (searchMode === 'beta' ? 1 : 10)
   )
     fail(EXIT.PARAMS, 'Use 1–10 batches; beta requires one batch and serial search-next')
+  const lastPublishedDays = number(opts.lastPublishedDays, '--last-published-days')
+  if (
+    lastPublishedDays !== undefined &&
+    (!Number.isInteger(lastPublishedDays) || lastPublishedDays < 1 || lastPublishedDays > 365)
+  )
+    fail(EXIT.PARAMS, '--last-published-days must be an integer from 1 to 365')
   return JSON.parse(
     JSON.stringify({
       searchMode,
@@ -107,7 +117,17 @@ export function searchInput(opts: any) {
       keywords: list(opts.keywords),
       mustExclude: list(opts.exclude),
       hasContactInfo: opts.hasContact ? true : undefined,
+      hasTkShop: opts.hasTkShop ? true : undefined,
       gender: opts.gender,
+      skinColor: list(opts.skinColors),
+      ageRange: opts.ageRange,
+      mainCategory: opts.mainCategory,
+      subCategory: opts.subCategory,
+      tone: opts.tone,
+      faceOnCamera: opts.faceOnCamera ? true : undefined,
+      formatTags: list(opts.formatTags),
+      sceneTags: list(opts.sceneTags),
+      lastPublishedDays,
       useVisualScreening: opts.visual ? true : undefined,
       productRequirements: opts.product
         ? {
@@ -158,7 +178,26 @@ const inputOptions: OptionDef[] = [
   { flags: '--keywords <list>', description: 'explicit keywords' },
   { flags: '--exclude <list>', description: 'excluded topics' },
   { flags: '--has-contact', description: 'require a contact record' },
+  {
+    flags: '--has-tk-shop',
+    description: 'require stored TikTok Shop presence (TIKTOK only)',
+  },
   { flags: '--gender <g>', description: 'creator gender male | female' },
+  {
+    flags: '--skin-colors <list>',
+    description: 'creator skin-color code keys, comma separated',
+  },
+  { flags: '--age-range <range>', description: 'creator age code key or numeric range' },
+  { flags: '--main-category <key>', description: 'content main-category code key' },
+  { flags: '--sub-category <key>', description: 'content sub-category code key' },
+  { flags: '--tone <key>', description: 'content-tone code key' },
+  { flags: '--face-on-camera', description: 'require a creator who appears on camera' },
+  { flags: '--format-tags <list>', description: 'video-format code keys, comma separated' },
+  { flags: '--scene-tags <list>', description: 'scene code keys, comma separated' },
+  {
+    flags: '--last-published-days <n>',
+    description: 'require a post in the last 1–365 days',
+  },
   { flags: '--visual', description: 'enable visual screening (beta only)' },
   { flags: '--product <text>', description: 'product description (beta only)' },
   {

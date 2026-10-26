@@ -21,7 +21,14 @@ fast. Omit unspecified hard filters; do not invent follower or geography default
 | --min-subscribers / --max-subscribers | Follower range |
 | --avg-min / --avg-max | Average views (TT/YT), average likes (IG) |
 | --has-contact | Contact record present; not proof of a public/deliverable email |
+| --has-tk-shop | Require stored TikTok Shop presence; TikTok only, not a live shop check |
 | --gender | Creator male / female; not audience gender |
+| --skin-colors / --age-range | Creator code keys (`white`, `youngAdult`) or numeric age range |
+| --main-category / --sub-category | Content taxonomy code keys such as `beauty` / `makeup` |
+| --tone | Content-tone code key such as `authoritative` |
+| --face-on-camera | Require the creator to appear on camera |
+| --format-tags / --scene-tags | Comma-separated content-format / scene code keys |
+| --last-published-days | Require activity in the last 1–365 days |
 | --tags / --keywords / --exclude | Canonical tags, keywords and excluded topics |
 | --batches | Default 1, fast/standard max 10, beta exactly 1 |
 | --visual | Beta optional visual screening |
@@ -35,6 +42,16 @@ There is no V2 search --limit. `task --limit 1–100 --offset N` only reads stor
 rows for free. search-next inherits source parameters and cannot accept replacement
 mode/filter flags. For exact installed options use `easykol schema <command>`.
 
+The API and CLI use stable English taxonomy code keys. The backend translates them
+to stored taxonomy values only at worker execution and returns the public code keys
+in `effectiveParameters`. Do not send stored Chinese values when a documented code
+key exists. `search-next` reuses the exact translated task parameters.
+
+Passing `--keywords ''` explicitly sends `keywords: []`: this disables only keyword
+recall and keeps canonical-tag and semantic recall active. Omitting `--keywords`
+allows the parser to generate keywords. Do not treat an empty array by itself as a
+zero-recall diagnosis; inspect the saved effective parameters and recall funnel.
+
 ## Filter Priority by User Intent
 
 | Intent | Key flags |
@@ -45,6 +62,8 @@ mode/filter flags. For exact installed options use `easykol schema <command>`.
 | Outreach-ready | `--has-contact` |
 | Audience language | `--languages` |
 | Performance floor | `--avg-min` |
+| TikTok storefront | `--has-tk-shop` |
+| Recent activity | `--last-published-days` |
 
 ## `similar` Filters
 

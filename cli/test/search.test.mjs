@@ -51,8 +51,8 @@ async function harness(t, options = {}) {
       return send({
         parameters: {
           ...body,
-          canonicalTags: [],
-          keywords: [],
+          canonicalTags: body.canonicalTags ?? [],
+          keywords: body.keywords ?? [],
           expandedQuery: body.sentence,
         },
         quote: {
@@ -176,6 +176,69 @@ test('standard and beta preserve explicit modes and product requirements', async
   }
   assert.equal(h.requests.at(-1).body.productRequirements.targetAudience, 'Runners')
   assert.equal(h.requests.at(-1).body.useVisualScreening, true)
+})
+test('v2 sends shop, activity and taxonomy filters through preparation and paid creation', async (t) => {
+  const h = await harness(t)
+  const response = await h.run([
+    ...search,
+    '--has-tk-shop',
+    '--last-published-days',
+    '30',
+    '--gender',
+    'female',
+    '--skin-colors',
+    'white,asian',
+    '--age-range',
+    'youngAdult',
+    '--main-category',
+    'beauty',
+    '--sub-category',
+    'makeup',
+    '--tone',
+    'authoritative',
+    '--face-on-camera',
+    '--format-tags',
+    'pov,tutorial',
+    '--scene-tags',
+    'office',
+    '--tags',
+    '美妆/Makeup',
+    '--keywords',
+    '',
+  ])
+  assert.equal(response.code, 0, response.err)
+  const expected = {
+    hasTkShop: true,
+    lastPublishedDays: 30,
+    gender: 'female',
+    skinColor: ['white', 'asian'],
+    ageRange: 'youngAdult',
+    mainCategory: 'beauty',
+    subCategory: 'makeup',
+    tone: 'authoritative',
+    faceOnCamera: true,
+    formatTags: ['pov', 'tutorial'],
+    sceneTags: ['office'],
+    canonicalTags: ['美妆/Makeup'],
+    keywords: [],
+  }
+  for (const [field, value] of Object.entries(expected)) {
+    assert.deepEqual(h.requests[0].body[field], value)
+    assert.deepEqual(h.requests[1].body[field], value)
+  }
+})
+test('v2 rejects invalid platform-specific and bounded filters before remote requests', async (t) => {
+  const h = await harness(t)
+  for (const args of [
+    [...search, '--platform', 'YOUTUBE', '--has-tk-shop'],
+    [...search, '--last-published-days', '0'],
+    [...search, '--last-published-days', '3.5'],
+    [...search, '--gender', 'unknown'],
+  ]) {
+    const response = await h.run(args)
+    assert.equal(response.code, 6)
+  }
+  assert.equal(h.requests.length, 0)
 })
 test('uncertain paid submission recovers with the persisted original key/body and one reservation', async (t) => {
   const h = await harness(t, { uncertain: true })

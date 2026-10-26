@@ -5,14 +5,14 @@
     "url": "https://easykol.com/skills"
   },
   "metadata": {
-    "version": "0.1.0",
+    "version": "0.1.1",
     "pluginRoot": "./plugins",
     "description": "EasyKOL KOL discovery, analysis, and outreach skill — supports YouTube / TikTok / Instagram"
   },
   "plugins": [
     {
       "name": "easykol",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "./plugins/easykol"
     }
   ]

@@ -494,6 +494,32 @@
         "Does not declare a refund final until pending=false",
         "Polls task for free, never creates another search"
       ]
+    },
+    {
+      "id": 40,
+      "category": "search-filters",
+      "prompt": "普通模式找美国 TikTok 美妆达人：粉丝 1 万到 15 万、均播 800 到 7000、最近 30 天发过内容，并且开通了 TikTok 橱窗。",
+      "expected_output": "Use one standard V2 search with the supported numeric, activity, taxonomy and stored-shop filters.",
+      "files": [],
+      "expectations": [
+        "Uses search-v2 --mode standard with platform=TIKTOK, regions=US and has-tk-shop",
+        "Sets min/max subscribers, avg-min/avg-max and last-published-days=30",
+        "Uses main-category=beauty when applying a taxonomy filter",
+        "Treats TikTok Shop as stored presence rather than live fulfilment verification"
+      ]
+    },
+    {
+      "id": 41,
+      "category": "search-diagnostics",
+      "prompt": "这个 V2 搜索 keywords 是空数组而且结果是 0，是不是 keywords: [] 把召回清空了？",
+      "expected_output": "Inspect effective parameters and funnel evidence before assigning causality to an empty keyword list.",
+      "files": [],
+      "expectations": [
+        "Explains that explicit keywords: [] disables the keyword branch but keeps tag and semantic recall",
+        "Checks effectiveParameters and compares one-filter variants before blaming numeric filters",
+        "For fast mode, checks virtual-project exclusion degradation separately from a true empty pool",
+        "Does not launch a replacement paid search without authorization"
+      ]
     }
   ]
 }

@@ -161,13 +161,14 @@ easykol schema search     # 单个命令的参数
 easykol exit-codes        # 退出码含义
 ```
 
-## Additional V2 search modes (CLI 0.2.0)
+## Additional V2 search modes (CLI 0.2.1)
 
 The original `search` and `parse` commands above retain their V1 contract.
 Use the new commands explicitly for fast, standard or beta asynchronous search:
 
 ```bash
 easykol search-v2 --mode fast --platform TIKTOK --sentence "US gaming creators" --regions US
+easykol search-v2 --mode standard --platform TIKTOK --sentence "US beauty creators" --main-category beauty --sub-category makeup --has-tk-shop --last-published-days 30
 easykol search-v2 --mode standard --platform YOUTUBE --sentence "Running reviewers"
 easykol search-v2 --mode beta --platform INSTAGRAM --sentence "Sports creators" --product "Running headphones"
 easykol parse-v2 --mode fast --platform TIKTOK --sentence "US gaming creators"
@@ -180,3 +181,7 @@ prepares/quotes before paid submission, persists the idempotency key for recover
 and bills by quoted batches. Stored-page queries are free. See
 [the V2 reference](../skills/easykol/references/search-modes.md) for recovery and
 settlement rules. Missing V2 never silently submits a paid V1 request.
+
+V2 also exposes creator taxonomy, appearance, recent-activity and stored TikTok
+Shop filters. Run `easykol schema search-v2` for the current flag list. Explicit
+`--keywords ''` disables only keyword recall; tag and semantic recall remain active.

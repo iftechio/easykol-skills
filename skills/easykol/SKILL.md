@@ -108,7 +108,8 @@ Turn a natural-language request into a shortlist of relevant creators.
 
 ### Choose a Mode
 
-Use CLI 0.2.0 or newer and the external V2 backend. Read
+Use CLI 0.2.0 or newer and the external V2 backend. The expanded V2 filter flags
+require CLI 0.2.1. Read
 `{baseDir}/references/search-modes.md` for the request / result contract.
 
 | User intent | Mode | Existing web pipeline | Target per batch |
@@ -124,7 +125,8 @@ For existing search tasks preserve their mode and filters; read
 ### Search Workflow
 
 1. Preflight the user's hard requirements. Search supports creator platform,
-   region/language, follower/performance range, creator gender and contact presence.
+   region/language, follower/performance range, recent activity, creator gender,
+   contact presence, content taxonomy and stored TikTok Shop presence.
    Audience demographics require separate `audience` analysis; unsupported metrics
    such as TikTok Shop fulfilment rate must remain unverified. Do not convert an
    unsupported hard condition to a keyword and claim verification.
@@ -146,6 +148,13 @@ For existing search tasks preserve their mode and filters; read
    `screening=unverified`, or unsupported requirements remain unverified. Describe
    partial candidates honestly. Contact presence does not prove a public or
    deliverable email; count actual non-empty emails when required.
+
+For taxonomy filters and explicit empty keyword behavior, read
+`{baseDir}/references/search-filters.md`. TikTok Shop is a stored-data hard filter,
+not a live storefront check. If a filtered request returns zero, compare one-filter
+variants and inspect `effectiveParameters` / funnel counts before blaming numeric
+ranges. In fast mode, distinguish a true empty candidate pool from virtual-project
+exclusion degradation.
 
 `RESULT_READY` means results may be read, not that processing/settlement completed.
 `COMPLETED` with `settlement.pending=true` still awaits refund reconciliation.

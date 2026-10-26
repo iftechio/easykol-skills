@@ -1,6 +1,7 @@
 # Intelligent Search V2
 
-Requires CLI >=0.2.0 and a deployed V2 backend. The existing easykol skill covers
+Requires CLI >=0.2.0 and a deployed V2 backend. Expanded V2 filter flags such as
+`--has-tk-shop` and `--last-published-days` require CLI >=0.2.1. The skill covers
 all three modes; no separate skill or credential is required.
 
 ## Call chain
@@ -23,10 +24,18 @@ Use one batch by default. Targets are not guaranteed result counts.
 Only beta accepts `--visual` and `--product`. `--audience` and `--ideal-influencer`
 require `--product`; consumer demographics never become creator gender/age filters.
 
+All modes accept the same public hard-filter fields. Taxonomy inputs use English
+code keys and are translated at the API worker boundary. Fast mode runs in a
+user-bound virtual project scope; it must still apply prior task candidates, user
+exclusions, enterprise ratings/publications and fail closed when an exclusion read
+fails. A missing physical Project row for that exact scope is expected and must not
+turn the search into zero recall.
+
 ## Commands
 
 ```sh
 easykol search-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US' --regions US
+easykol search-v2 --mode standard --platform TIKTOK --sentence 'US beauty creators' --regions US --main-category beauty --sub-category makeup --has-tk-shop --last-published-days 30
 easykol search-v2 --mode standard --platform INSTAGRAM --sentence 'Fitness creators in UK' --regions GB
 easykol search-v2 --mode beta --platform YOUTUBE --sentence 'Running equipment reviewers' --product 'Running headphones' --audience 'Runners'
 easykol parse-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US'

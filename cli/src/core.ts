@@ -19,7 +19,7 @@ export const EXIT = {
 export const DEFAULT_API_BASE = 'https://app.easykol.com'
 
 /** Keep in sync with package.json version. */
-export const CLI_VERSION = '0.2.0'
+export const CLI_VERSION = '0.2.1'
 
 /** Default max search quota spendable in one rolling CLI session without --confirm-spend. */
 export const DEFAULT_SEARCH_SESSION_BUDGET = 50

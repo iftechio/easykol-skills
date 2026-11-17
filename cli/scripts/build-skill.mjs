@@ -1,7 +1,7 @@
-import { build } from 'tsup'
 import { fileURLToPath } from 'node:url'
 
 process.chdir(fileURLToPath(new URL('..', import.meta.url)))
+const { build } = await import('tsup')
 
 await build({
   entry: { api: fileURLToPath(new URL('../src/skill.ts', import.meta.url)) },

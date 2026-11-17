@@ -1,6 +1,6 @@
 # Task-bound continuation (all V2 modes)
 
-CLI >=0.2.0 supports `task` and `search-next`. Use the full contract in
+The bundled helper supports `task` and `search-next`. Use the full contract in
 [search-modes.md](search-modes.md).
 
 1. Read the source task with `task --task-id ID`. Validate its actual mode and

@@ -109,7 +109,7 @@ interface CallOptions {
 export async function apiCall(opts: CallOptions): Promise<RawResult> {
   const cfg = loadConfig()
   if (!cfg.apiKey || !cfg.email) {
-    fail(EXIT.UNAUTH, 'Not authenticated. Run: easykol auth --key-stdin --email <email>', {
+    fail(EXIT.UNAUTH, 'Not authenticated. Configure your API key and email first.', {
       hint: 'Configure your API key and email first',
     })
   }

@@ -1,17 +1,17 @@
 # Error Codes
 
-The CLI signals outcome via exit code and a JSON body. Get the list with
-`easykol exit-codes`.
+The API helper signals outcome via exit code and a JSON body. Get the list with
+`node "{baseDir}/scripts/api.cjs" exit-codes`.
 
 | Code | Name                 | Meaning                              | Recovery                                              |
 |------|----------------------|--------------------------------------|-------------------------------------------------------|
 | 0    | `OK`                 | Success                              | Use `data`.                                           |
 | 1    | `GENERIC`            | Unspecified failure                  | Report message; retry if it looks transient.          |
-| 2    | `UNAUTH`             | No / invalid key                     | `easykol auth --key-stdin --email <email>`.           |
+| 2    | `UNAUTH`             | No / invalid key                     | `node "{baseDir}/scripts/api.cjs" auth --key-stdin --email <email>`.           |
 | 3    | `QUOTA`              | Not enough credits                   | Stop; tell user; share `action.url` if present.       |
 | 4    | `FORBIDDEN`          | Feature not in plan                  | Explain; suggest upgrade.                             |
 | 5    | `NETWORK`            | Connectivity / backend down          | For paid searches, recover the same key/task; never replace it.                   |
-| 6    | `PARAMS`             | Invalid arguments                    | Re-read `easykol schema <cmd>`; fix flags.            |
+| 6    | `PARAMS`             | Invalid arguments                    | Re-read `node "{baseDir}/scripts/api.cjs" schema <cmd>`; fix flags.            |
 | 7    | `RATELIMIT`          | Too many requests                    | Back off and retry; report if it persists.            |
 | 8    | `BUDGET`             | Search session budget exceeded       | Stop; ask user; retry with `--confirm-spend` only if approved. |
 
@@ -30,11 +30,11 @@ Failure (process also exits with the code):
 ```
 
 `action` appears only when the user must do something (top up, authenticate, approve
-spend). Never fabricate `action.url` — surface it only when the CLI provides it.
+spend). Never fabricate `action.url` — surface it only when the API helper provides it.
 
-## How the CLI maps HTTP → exit code
+## How the API helper maps HTTP → exit code
 
-The backend wraps responses as `{ statusCode, error, message, data }`. The CLI maps the
+The backend wraps responses as `{ statusCode, error, message, data }`. The API helper maps the
 HTTP status to an exit code: 401→2, 403→4, 402 / "quota" message→3, 429→7, 400→6,
 5xx / network→5, other→1.
 
@@ -42,5 +42,5 @@ V2 404 maps to exit 6 with a deployment/ownership hint; it never triggers V1 fal
 409 identifies a conflicting key or existing continuation. Read that task instead of
 creating a new key. Polling timeout returns the existing task with pollingTimedOut.
 
-Exit code **8** is local (CLI quote-based session budget; legacy `--limit` soft cap). It is not an HTTP
+Exit code **8** is local (API helper quote-based session budget; legacy `--limit` soft cap). It is not an HTTP
 mapping — treat it as a hard stop until the user approves more spend.

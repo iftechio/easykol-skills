@@ -9,7 +9,7 @@ description: >-
   and account setup. Use when the user mentions finding influencers, checking a
   creator's audience, getting creator emails, analyzing a video, or setting up
   EasyKOL access, managing EasyKOL email templates or sending outreach emails.
-metadata: {"openclaw":{"requires":{"bins":["easykol"]},"install":[{"kind":"node","package":"@easykol/cli","bins":["easykol"]}],"homepage":"https://app.easykol.com/skills"}}
+metadata: {"openclaw":{"requires":{"bins":["node"]},"homepage":"https://app.easykol.com/skills"}}
 ---
 
 # EasyKOL
@@ -18,8 +18,12 @@ Full-workflow creator intelligence skill for influencer discovery, creator profi
 audience analysis, bulk email extraction, and video analytics across YouTube, TikTok,
 and Instagram, with email template and outreach management.
 
-The user interacts through natural language. Execute CLI commands yourself and report
-results in plain language. Never expose raw CLI commands or JSON to the user.
+The user interacts through natural language. Call the EasyKOL API using the bundled
+`{baseDir}/scripts/api.cjs` script and report results in plain language. It needs only
+Node.js 18.3+; no `easykol` installation, npm package publication or npm login is needed.
+Run operations with `node "{baseDir}/scripts/api.cjs" <operation> [options]`.
+`{baseDir}` is this installed skill directory, not the caller's working directory.
+Never expose raw operations, JSON or credentials in the user-facing answer.
 
 ## When to Use
 
@@ -36,25 +40,24 @@ results in plain language. Never expose raw CLI commands or JSON to the user.
 - Post content, send DMs, or interact with social platforms
 - Return content not yet in the EasyKOL database
 - Make final campaign-budget or partnership decisions
-- Draft outreach emails or negotiation copy
-- Work in ChatGPT (requires a CLI execution environment)
+- Work in a chat environment that cannot execute the bundled Node.js script
 
 ## Core Principles
 
 ### Agent-First
 
-The user does not operate the CLI. You do. Run commands silently and report results
+The agent operates the bundled script. Run operations silently and report results
 in plain language. Only share URLs when the user needs to act in a browser (top up,
 authenticate).
 
-### CLI Self-Description
+### API Helper Self-Description
 
-The CLI documents itself — use it rather than memorising parameters:
+The API helper documents itself — use it rather than memorising parameters:
 
-- **Command schema**: `easykol schema <cmd>` (e.g. `schema kol`, `schema search-v2`)
-- **Full command tree**: `easykol schema --all`
-- **Exit codes**: `easykol exit-codes`
-- **Diagnostics**: `easykol doctor`
+- **Command schema**: `node "{baseDir}/scripts/api.cjs" schema <cmd>` (e.g. `schema kol`, `schema search-v2`)
+- **Full command tree**: `node "{baseDir}/scripts/api.cjs" schema --all`
+- **Exit codes**: `node "{baseDir}/scripts/api.cjs" exit-codes`
+- **Diagnostics**: `node "{baseDir}/scripts/api.cjs" doctor`
 
 ## Routing Cheat Sheet
 
@@ -69,38 +72,28 @@ The CLI documents itself — use it rather than memorising parameters:
 | Analyze a video / post by URL | `video` |
 | Manage email templates, senders or outreach | `email-*`; read `references/email.md` |
 | Check remaining credits | `quota` |
-| Setup / diagnostics | `auth`, `doctor`, `upgrade` |
+| Setup / diagnostics | `auth`, `doctor` |
 
-For exact flags always run `easykol schema <cmd>` first.
+For exact flags always run `node "{baseDir}/scripts/api.cjs" schema <cmd>` first.
 
 ---
 
 ## 1. Getting Started
 
-At the **start of every EasyKOL session**, silently refresh tooling first (do not ask
-the user, do not narrate unless something fails):
+At session start, run `node "{baseDir}/scripts/api.cjs" doctor`. This checks
+Node.js, existing configuration and connectivity without installing anything.
 
-1. Prefer `easykol upgrade` when the CLI is already installed.
-2. Otherwise run both (best-effort; continue on failure):
-   ```
-   npm install -g @easykol/cli@latest
-   npx --yes skills update easykol -y
-   ```
-3. After a successful skill refresh, re-read this skill's `SKILL.md` and
-   `references/quota-heuristics.md` before any paid search so the current session
-   picks up budget rules.
+1. Reuse the existing `~/.easykol/config.json` (or `EASYKOL_CONFIG_DIR`) when it
+   belongs to the intended account. Never silently switch accounts.
+2. If a key or email is missing, use the user's API key and email. Read the key
+   from stdin with `node "{baseDir}/scripts/api.cjs" auth --key-stdin --email <email>`.
+   Do not put secrets in command arguments, output or source files. Reuse safely
+   stored credentials before asking for information already available.
+3. Run `node "{baseDir}/scripts/api.cjs" quota` and report blocking issues.
 
-Then run `easykol doctor` and fix only what is missing:
-
-1. **CLI missing** → ask the user to run `npm install -g @easykol/cli@latest`.
-2. **No API key** (`hasApiKey: false`) → ask the user for their key and email, then:
-   ```
-   printf '%s' "<KEY>" | easykol auth --key-stdin --email <email>
-   ```
-   Never pass the key as a positional argument or log it.
-3. **Configured** → run `easykol quota` and report any blocking issues.
-4. If `doctor` reports `updateAvailable: true`, run `easykol upgrade` once more before
-   searching.
+Update the Skill from its GitHub installation source when an update is needed,
+then re-read `SKILL.md` and `references/quota-heuristics.md`. Do not install or
+upgrade `@easykol/cli`. The bundled script and references update together.
 
 ---
 
@@ -110,8 +103,7 @@ Turn a natural-language request into a shortlist of relevant creators.
 
 ### Choose a Mode
 
-Use CLI 0.2.0 or newer and the external V2 backend. The expanded V2 filter flags
-require CLI 0.2.1. Read
+The bundled helper calls the deployed external V2 API. Read
 `{baseDir}/references/search-modes.md` for the request / result contract.
 
 | User intent | Mode | Existing web pipeline | Target per batch |
@@ -136,7 +128,7 @@ For existing search tasks preserve their mode and filters; read
    missing platform once. Put all target countries in one `--regions` list; omit
    filters the user did not specify rather than inventing thresholds. Consumer
    target age/gender belongs to Beta `--product` / `--audience`, not creator filters.
-3. Submit one `search-v2` by default. The CLI obtains a free mode-specific preparation
+3. Submit one `search-v2` by default. The API helper obtains a free mode-specific preparation
    and quote before the paid request. `parse-v2` is optional for showing / editing the
    plan, not a required user confirmation stage. The user's existing authorization
    applies to all necessary steps within their stated scope and budget.
@@ -177,14 +169,14 @@ as zero recall or treat unknown judgments as rejection.
 
 ### Budget Control
 
-The CLI reserves the **server quote**, not the number of displayed rows. One task
-point equals 10 raw quota. The shared rolling CLI search budget defaults to 50 raw
+The API helper reserves the **server quote**, not the number of displayed rows. One task
+point equals 10 raw quota. The shared rolling API helper search budget defaults to 50 raw
 quota (5 points) per 2-hour window; finalized refunds reconcile on task reads.
 Use `{baseDir}/references/quota-heuristics.md` for details.
 
 Use one batch by default. For a user-authorized larger plan, sum the quoted batch
 costs and continue within that authorization; do not request repeated permission
-at every stage. If the plan exceeds the user's approved scope/budget or the CLI
+at every stage. If the plan exceeds the user's approved scope/budget or the API helper
 returns exit 8, explain the extra cost and obtain approval before `--confirm-spend`.
 Existing explicit approval persists across turns; never invent it.
 
@@ -203,7 +195,7 @@ commands continue using their existing endpoints.
 
 ### Lookalike Discovery
 
-Use `easykol similar --url <profile-url>` when the user wants creators similar to a
+Use `node "{baseDir}/scripts/api.cjs" similar --url <profile-url>` when the user wants creators similar to a
 specific channel. This is async and takes ~30s; tell the user you are searching.
 
 Optional filters: `--regions`, `--languages`, `--min-subscribers`, `--max-subscribers`,
@@ -221,7 +213,7 @@ wall of numbers.
 
 ### Profile
 
-Run `easykol kol --url <profile-url>` to fetch the creator's current profile:
+Run `node "{baseDir}/scripts/api.cjs" kol --url <profile-url>` to fetch the creator's current profile:
 nickname, follower count, avg performance, region, language, and email (if on file).
 
 This is the first thing to run when the user pastes a creator URL or asks "what can
@@ -229,7 +221,7 @@ you tell me about this creator?"
 
 ### Audience Analysis
 
-Run `easykol audience --url <profile-url>` to fetch:
+Run `node "{baseDir}/scripts/api.cjs" audience --url <profile-url>` to fetch:
 
 - **Portrait**: age distribution (under18 / 18–25 / 25–45 / above45) and gender split
 - **Region**: top audience countries with T1/T2/T3 development level
@@ -255,7 +247,7 @@ filter, unless the API explicitly supports that filter.
 Use `references/email.md` for template creation/updates, stage follow-up templates,
 automatic follow-up sequences, connected sender configuration, sending, and sent
 result queries. These commands require the matching backend release; verify the
-CLI schema before use. Permission to draft or configure does not authorize actual
+helper schema before use. Permission to draft or configure does not authorize actual
 email delivery. Existing authorization persists; do not repeatedly ask for it.
 For `email-send`, network errors, timeouts and 5xx can mean uncertain delivery:
 **never apply the generic retry rule below to email sending**. Read records first.
@@ -263,19 +255,19 @@ New mailbox binding and reauthorization remain in the web flow.
 
 ## 4. Retrieving Emails
 
-**Important distinction**: `easykol kol` already returns the creator's visible email
-from the platform profile. Do NOT run `easykol emails` just because the user asks about
+**Important distinction**: `node "{baseDir}/scripts/api.cjs" kol` already returns the creator's visible email
+from the platform profile. Do NOT run `node "{baseDir}/scripts/api.cjs" emails` just because the user asks about
 a creator's email or contact info for a single creator — `kol` covers that.
 
-Use `easykol emails` when the user explicitly wants to **bulk-extract** contact emails
+Use `node "{baseDir}/scripts/api.cjs" emails` when the user explicitly wants to **bulk-extract** contact emails
 for a list of creator URLs, or wants an exported Excel file of contacts. This is async
 (~60s). It does not prove that every address is public, valid, or available; report
 missing results and coverage after completion.
 
 ```
-easykol emails --tt-urls <url1,url2,...>
-easykol emails --yt-urls <url1,url2,...>
-easykol emails --ins-urls <url1,url2,...>
+node "{baseDir}/scripts/api.cjs" emails --tt-urls <url1,url2,...>
+node "{baseDir}/scripts/api.cjs" emails --yt-urls <url1,url2,...>
+node "{baseDir}/scripts/api.cjs" emails --ins-urls <url1,url2,...>
 ```
 
 Flags can be combined for mixed-platform batches. Costs 1 quota per 5 URLs (rounded up).
@@ -287,7 +279,7 @@ and share the URL.
 
 ## 5. Analyzing a Video
 
-Run `easykol video --url <video-url>` to fetch video metadata: title, view count,
+Run `node "{baseDir}/scripts/api.cjs" video --url <video-url>` to fetch video metadata: title, view count,
 like count, comment count, share count, Instagram Repost count when supplied,
 publish date, author name, and author follower count. `shareCount` is the share
 metric (the Instagram paper-plane action); `repostCount` is Instagram's distinct
@@ -305,31 +297,35 @@ creator's recent content before outreach.
 
 ## Error Handling
 
-For all failures, use the CLI response:
+Sending is never retried automatically, including on 429, network errors, timeouts
+or 5xx. Recover paid search using the original key/task. Retry a failed read at most
+once with backoff; other mutations require checking the existing result first.
+
+For all failures, use the API helper response:
 - `action.url` — where the user should go (top up, authenticate)
 - `action.hint` — what to do next
 
 | Exit code | Meaning | What to do |
 |-----------|---------|------------|
-| 2 | Not authenticated | Run `easykol auth --key-stdin --email <email>` |
+| 2 | Not authenticated | Run `node "{baseDir}/scripts/api.cjs" auth --key-stdin --email <email>` |
 | 3 | Quota exhausted | Stop, tell user, share `action.url` if present |
 | 4 | Feature not in plan | Explain, suggest upgrade |
-| 5 | Network error | Retry once, then report |
-| 6 | Bad parameters | Re-read `easykol schema <cmd>`, fix flags, retry |
-| 7 | Rate limit | Back off and retry |
+| 5 | Network error | Retry reads once; recover the original paid task; never resend email |
+| 6 | Bad parameters | Re-read `node "{baseDir}/scripts/api.cjs" schema <cmd>`, fix flags, retry |
+| 7 | Rate limit | Back off for reads; check mutation outcome before any repeat |
 | 8 | Search session budget | Stop, ask user; retry with `--confirm-spend` only if approved |
 
 For async commands (`similar`, `emails`, `audience`), if the command times out
 (exit 1 with "timed out"), tell the user the task is taking longer than expected and
 suggest retrying with `--timeout 300`.
 
-Run `easykol doctor` as a first diagnostic when the cause is unclear.
+Run `node "{baseDir}/scripts/api.cjs" doctor` as a first diagnostic when the cause is unclear.
 
 ## References
 
 - `{baseDir}/references/email.md` — templates, automatic follow-ups, connected mailboxes, sending and result checks
 
-- `{baseDir}/references/pro-pagination.md` — Pro single-page retrieval, task continuation, and CLI/API boundaries
+- `{baseDir}/references/pro-pagination.md` — Pro single-page retrieval, task continuation, and helper/API boundaries
 - `{baseDir}/references/search-filters.md` — full flag reference for search / parse / more-words
 - `{baseDir}/references/platform-support.md` — data availability by platform and command
 - `{baseDir}/references/quota-heuristics.md` — billing details per command

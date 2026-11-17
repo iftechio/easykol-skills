@@ -2,18 +2,18 @@
 
 `search-v2`, `search-next`, `similar`, `emails`, and `audience` are asynchronous. Search
 recovery and result-page semantics are specified in [search-modes.md](search-modes.md).
-Do not resubmit search on polling timeout; read the existing task ID. The CLI handles
+Do not resubmit search on polling timeout; read the existing task ID. The API helper handles
 polling internally — the agent does not need to manage task IDs or poll manually.
 
 ## Behaviour
 
 ```
-easykol similar --url <url>          # ~30s, polls until done
-easykol emails --yt-urls <url1,url2> # ~60s, polls until done
-easykol audience --url <url>         # instant on cache hit; up to 2 min on miss
+node "{baseDir}/scripts/api.cjs" similar --url <url>          # ~30s, polls until done
+node "{baseDir}/scripts/api.cjs" emails --yt-urls <url1,url2> # ~60s, polls until done
+node "{baseDir}/scripts/api.cjs" audience --url <url>         # instant on cache hit; up to 2 min on miss
 ```
 
-The CLI blocks until the task completes or times out, then emits the standard
+The API helper blocks until the task completes or times out, then emits the standard
 `{ "status": "ok", "data": { ... } }` envelope.
 
 ## Timeouts
@@ -46,6 +46,6 @@ command is taking more than a few seconds.
 
 ## Environment Requirement
 
-Async commands create tasks on the EasyKOL production server. The CLI must be able
+Async commands create tasks on the EasyKOL production server. The API helper must be able
 to reach `https://app.easykol.com`. If running behind a proxy or firewall, exit code 5
-(network error) will appear immediately — check connectivity first with `easykol doctor`.
+(network error) will appear immediately — check connectivity first with `node "{baseDir}/scripts/api.cjs" doctor`.

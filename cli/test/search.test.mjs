@@ -111,7 +111,7 @@ async function harness(t, options = {}) {
     await new Promise((resolve) => server.close(resolve))
     rmSync(dir, { recursive: true, force: true })
   })
-  const run = (args, entryArgs = ['dist/index.js']) =>
+  const run = (args, entryArgs = [process.env.EASYKOL_TEST_ENTRY || 'dist/index.js']) =>
     new Promise((resolve) => {
       const child = spawn(process.execPath, [...entryArgs, ...args], {
         env: {

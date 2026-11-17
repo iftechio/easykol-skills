@@ -1,7 +1,7 @@
 # Email templates and outreach
 
-Requires a backend release supporting `/external/v1/email` and a CLI exposing
-`email-template-list`. Check `easykol schema <command>` before execution. A 404
+Requires a backend release supporting `/external/v1/email` and the bundled
+API script exposing `email-template-list`. Check `node "{baseDir}/scripts/api.cjs" schema <command>` before execution. A 404
 means unavailable endpoint or inaccessible template; distinguish only when verified.
 Never silently switch to browser authentication or another account.
 Use the configured API key and email; never print credentials.

@@ -1,7 +1,7 @@
 # Search Filters
 
-Parameters for `easykol parse-v2`, `easykol more-words`, and `easykol search-v2`. Confirm
-the live set with `easykol schema <cmd>`.
+Parameters for `node "{baseDir}/scripts/api.cjs" parse-v2`, `node "{baseDir}/scripts/api.cjs" more-words`, and `node "{baseDir}/scripts/api.cjs" search-v2`. Confirm
+the live set with `node "{baseDir}/scripts/api.cjs" schema <cmd>`.
 
 V2 supports fast / standard / beta with the same public filter names. Read
 [search-modes.md](search-modes.md) for mode and task semantics. `more-words`,
@@ -40,9 +40,9 @@ fast. Omit unspecified hard filters; do not invent follower or geography default
 
 There is no V2 search --limit. `task --limit 1–100 --offset N` only reads stored
 rows for free. search-next inherits source parameters and cannot accept replacement
-mode/filter flags. For exact installed options use `easykol schema <command>`.
+mode/filter flags. For exact installed options use `node "{baseDir}/scripts/api.cjs" schema <command>`.
 
-The API and CLI use stable English taxonomy code keys. The backend translates them
+The API and API helper use stable English taxonomy code keys. The backend translates them
 to stored taxonomy values only at worker execution and returns the public code keys
 in `effectiveParameters`. Do not send stored Chinese values when a documented code
 key exists. `search-next` reuses the exact translated task parameters.
@@ -67,7 +67,7 @@ zero-recall diagnosis; inspect the saved effective parameters and recall funnel.
 
 ## `similar` Filters
 
-`easykol similar` accepts these optional filters to narrow lookalike results:
+`node "{baseDir}/scripts/api.cjs" similar` accepts these optional filters to narrow lookalike results:
 
 | Flag | Notes |
 |------|-------|
@@ -88,10 +88,10 @@ automatically. `more-words` is a legacy V1 utility, not part of V2 execution.
 
 ```bash
 # Preview tags + keywords before committing to a search
-easykol parse-v2 --sentence "fitness creators US" --platform YOUTUBE
+node "{baseDir}/scripts/api.cjs" parse-v2 --sentence "fitness creators US" --platform YOUTUBE
 
 # Get more keyword suggestions, excluding what you already have
-easykol more-words --sentence "fitness creators US" --platform YOUTUBE \
+node "{baseDir}/scripts/api.cjs" more-words --sentence "fitness creators US" --platform YOUTUBE \
   --exclude "home workouts,home fitness"
 ```
 

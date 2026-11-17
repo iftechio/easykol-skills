@@ -5,9 +5,10 @@ description: >-
   influencers on YouTube, TikTok, or Instagram. Covers creator discovery
   (natural-language search, lookalikes), creator profiling, audience analysis
   (age/gender/region/fake-follower rate), bulk email extraction, video analysis,
+  email templates, connected senders, outreach sending and result queries,
   and account setup. Use when the user mentions finding influencers, checking a
   creator's audience, getting creator emails, analyzing a video, or setting up
-  EasyKOL access.
+  EasyKOL access, managing EasyKOL email templates or sending outreach emails.
 metadata: {"openclaw":{"requires":{"bins":["easykol"]},"install":[{"kind":"node","package":"@easykol/cli","bins":["easykol"]}],"homepage":"https://app.easykol.com/skills"}}
 ---
 
@@ -15,7 +16,7 @@ metadata: {"openclaw":{"requires":{"bins":["easykol"]},"install":[{"kind":"node"
 
 Full-workflow creator intelligence skill for influencer discovery, creator profiling,
 audience analysis, bulk email extraction, and video analytics across YouTube, TikTok,
-and Instagram.
+and Instagram, with email template and outreach management.
 
 The user interacts through natural language. Execute CLI commands yourself and report
 results in plain language. Never expose raw CLI commands or JSON to the user.
@@ -66,6 +67,7 @@ The CLI documents itself — use it rather than memorising parameters:
 | Get a creator's audience breakdown | `audience` |
 | Get emails for a list of creator URLs | `emails` |
 | Analyze a video / post by URL | `video` |
+| Manage email templates, senders or outreach | `email-*`; read `references/email.md` |
 | Check remaining credits | `quota` |
 | Setup / diagnostics | `auth`, `doctor`, `upgrade` |
 
@@ -248,6 +250,17 @@ filter, unless the API explicitly supports that filter.
 
 ---
 
+## Email Templates, Connected Mailboxes and Outreach
+
+Use `references/email.md` for template creation/updates, stage follow-up templates,
+automatic follow-up sequences, connected sender configuration, sending, and sent
+result queries. These commands require the matching backend release; verify the
+CLI schema before use. Permission to draft or configure does not authorize actual
+email delivery. Existing authorization persists; do not repeatedly ask for it.
+For `email-send`, network errors, timeouts and 5xx can mean uncertain delivery:
+**never apply the generic retry rule below to email sending**. Read records first.
+New mailbox binding and reauthorization remain in the web flow.
+
 ## 4. Retrieving Emails
 
 **Important distinction**: `easykol kol` already returns the creator's visible email
@@ -313,6 +326,8 @@ suggest retrying with `--timeout 300`.
 Run `easykol doctor` as a first diagnostic when the cause is unclear.
 
 ## References
+
+- `{baseDir}/references/email.md` — templates, automatic follow-ups, connected mailboxes, sending and result checks
 
 - `{baseDir}/references/pro-pagination.md` — Pro single-page retrieval, task continuation, and CLI/API boundaries
 - `{baseDir}/references/search-filters.md` — full flag reference for search / parse / more-words

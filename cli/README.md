@@ -185,3 +185,16 @@ settlement rules. Missing V2 never silently submits a paid V1 request.
 V2 also exposes creator taxonomy, appearance, recent-activity and stored TikTok
 Shop filters. Run `easykol schema search-v2` for the current flag list. Explicit
 `--keywords ''` disables only keyword recall; tag and semantic recall remain active.
+
+
+### Email module
+
+With a backend supporting `/external/v1/email`, run `easykol schema email-send`
+and the `email-template-*`, `email-followup-template-*`, `email-followups-*`,
+`email-senders`, `email-sender-*`, `email-record`, `email-records` commands.
+JSON writes use `--body-file file.json` or `--body-file -` (stdin).
+Actual sending requires `--confirm-send`; changing an automatic follow-up sequence
+requires `--confirm-scheduled-changes`, because pending schedules change too.
+These flags reflect existing user authorization, not an instruction to ask again.
+Never automatically retry an uncertain send. New mailbox binding and OAuth
+reauthorization use the web flow. See `skills/easykol/references/email.md`.

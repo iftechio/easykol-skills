@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { SEARCH_COMMANDS } from './search'
+import { EMAIL_COMMANDS } from './email'
 import {
   apiCall,
   apiRequest,
@@ -467,6 +468,7 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   ...SEARCH_COMMANDS,
+  ...EMAIL_COMMANDS,
 ]
 
 /** schema-friendly view of a command (no handler). */

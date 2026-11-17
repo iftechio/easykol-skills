@@ -2,7 +2,7 @@
 
 Agent skill for **EasyKOL** — KOL / creator discovery, analysis, and outreach across
 **YouTube, TikTok, and Instagram**. Designed for agentic coding environments
-(Claude Code, Cursor, Codex). The agent reads `SKILL.md`, drives the `easykol` CLI,
+(Claude Code, Cursor, Codex). The agent reads `SKILL.md`, calls the API with the Skill's bundled script,
 and reports results — the user just describes what they want.
 
 ## Install
@@ -26,33 +26,20 @@ claude plugin marketplace add https://github.com/iftechio/easykol-skills
 claude plugin install easykol@easykol
 ```
 
-## Install the CLI
+## Runtime and credentials
 
-```bash
-npm install -g @easykol/cli@latest
-easykol schema --all   # verify the command tree
-```
+Install the Skill only. It includes `skills/easykol/scripts/api.cjs`, a self-contained
+API transport requiring Node.js 18.3+. No global `easykol` command, package installation,
+npm publication or npm login is needed to use it. Existing `~/.easykol/config.json`
+credentials and saved search requests are reused.
 
-## Keep current
+After installation, ask your agent to read the installed `SKILL.md`, configure your
+API key via stdin and your bound email, then run its bundled `doctor` and `quota`
+operations. Never put a real key in a command argument or a shared prompt.
 
-The skill instructs agents to refresh on every session start via `easykol upgrade`
-(CLI + `npx skills update easykol -y`). You can also run manually:
-
-```bash
-easykol upgrade
-# or
-npm install -g @easykol/cli@latest
-npx --yes skills update easykol -y
-```
-
-## Log in & verify
-
-```bash
-# key + email pair (no browser login yet)
-printf '%s' "<API_KEY>" | easykol auth --key-stdin --email you@example.com
-easykol doctor   # checks config + connectivity
-easykol quota    # remaining credits
-```
+Update the Skill from the same GitHub source to receive both instructions and the
+bundled script. The separate `cli/` package remains available for optional manual use;
+the Skill does not install or depend on it.
 
 ## Repository layout
 
@@ -61,27 +48,33 @@ easykol quota    # remaining credits
 plugins/easykol/                  # plugin package (plugin.json + skill symlink)
 skills/easykol/SKILL.md           # the skill the agent reads
 skills/easykol/references/        # detailed parameter / quota / error references
-cli/                              # @easykol/cli — the CLI the skill drives
+skills/easykol/scripts/api.cjs    # bundled, dependency-free API transport
+cli/                              # shared source, optional standalone package
 evals/                            # eval suite (TBD)
 ```
 
-## Status
+## Capabilities and development
 
-v0.2.1 — `search-v2 --mode fast|standard|beta` defaults to fast and uses
-`/external/v2/intelligent-search`. `parse-v2 --mode` returns preparation + quote;
-`task` reads saved pages for free; `search-next` continues the exact completed task
-serially. Stable idempotency keys and a local request journal recover uncertain
-submissions without creating replacement paid tasks. Search budget uses server
-quotes (default 50 raw quota = 5 task points); finalized refunds reconcile on reads.
-V2 CLI filters include stored TikTok Shop presence, recent activity, creator traits
-and content taxonomy code keys; explicit empty keywords retain tag/semantic recall.
+Search supports fast, standard and beta modes, free stored-page reads and serial
+task continuation. The bundled transport preserves quote-based budgets, stable
+idempotency keys and request journals. Email templates, connected senders,
+follow-ups and results use `/external/v1/email`; sending requires authorization,
+and uncertain sends are never retried automatically. Authentication remains
+`ek-api-key` + `ek-api-email`.
 
-`search` / `parse` retain their original V1 names, options and behavior;
-new search modes are additive commands (`search-v2` / `parse-v2`).
-Other creator/profile/audience/email/video commands keep their existing V1 APIs.
-Deploy the external V2 backend before publishing CLI 0.2.1 / refreshing the skill;
-there is no silent V1 fallback. See `skills/easykol/references/search-modes.md`.
-Auth remains `ek-api-key` + `ek-api-email`.
+The bundled script is generated from shared API source in `cli/src/`; its standalone
+entry excludes npm installation and upgrade commands. After changing that source:
+
+```bash
+cd cli
+npm ci
+npm run build:skill
+npm run typecheck
+npm run test:skill
+```
+
+Commit the regenerated `skills/easykol/scripts/api.cjs` with source changes. Users
+installing only the Skill do not need these development dependencies.
 
 ## License
 

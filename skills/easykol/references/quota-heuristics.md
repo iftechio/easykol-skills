@@ -20,7 +20,7 @@ a refund is final only when settlement.pending=false.
 | `doctor` | free | Local + connectivity check |
 | `auth` | free | Saves API key and email |
 | `quota` | free | Shows remaining credits |
-| `schema` / `exit-codes` | free | CLI self-description |
+| `schema` / `exit-codes` | free | API helper self-description |
 | `parse-v2` | free | Mode-specific preparation and task-point quote |
 | `more-words` | free | More keyword suggestions |
 | `search-v2` / `search-next` | **server batch quote** | task-point reservation; excess/zero-result refunds at settlement |
@@ -52,6 +52,6 @@ On quota exhaustion (exit 3), stop paid work and report the returned top-up acti
 
 ## Checking Quota
 
-Run `easykol quota` when the user asks, at session start, and before any plan that
+Run `node "{baseDir}/scripts/api.cjs" quota` when the user asks, at session start, and before any plan that
 may cost more than the user's requested result count. The response shows total,
 used, remaining, and daily limits.

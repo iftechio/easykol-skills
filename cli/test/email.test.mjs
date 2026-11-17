@@ -73,7 +73,7 @@ async function harness(t, response = "success") {
   });
   const run = (args, stdin) =>
     new Promise((resolve) => {
-      const child = spawn(process.execPath, ["dist/index.js", ...args], {
+      const child = spawn(process.execPath, [process.env.EASYKOL_TEST_ENTRY || "dist/index.js", ...args], {
         env: {
           ...process.env,
           EASYKOL_CONFIG_DIR: dir,

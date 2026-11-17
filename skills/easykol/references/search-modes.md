@@ -1,12 +1,11 @@
 # Intelligent Search V2
 
-Requires CLI >=0.2.0 and a deployed V2 backend. Expanded V2 filter flags such as
-`--has-tk-shop` and `--last-published-days` require CLI >=0.2.1. The skill covers
-all three modes; no separate skill or credential is required.
+Use the script bundled with this Skill and a deployed V2 backend. All three modes
+and filters are available without installing an npm client.
 
 ## Call chain
 
-User requirement → CLI `search-v2 --mode` → free POST `/external/v2/intelligent-search/parse`
+User requirement → API helper `search-v2 --mode` → free POST `/external/v2/intelligent-search/parse`
 → prepared parameters + task-point quote → quote-based local budget guard
 → POST `/external/v2/intelligent-search` with stable `idempotencyKey`
 → atomic quota reservation and WEB_SEARCH task creation → existing queue/worker
@@ -15,7 +14,7 @@ User requirement → CLI `search-v2 --mode` → free POST `/external/v2/intellig
 
 | Mode | Internal pipeline | Behavior |
 |------|-------------------|----------|
-| fast (default) | mode 8 + historical | Target 60/batch; existing ES+Milvus recall, PG hard checks and Jev text relevance; refresh after delivery |
+| fast (default) | mode 8 + historical | Target 60/batch; stored-data recall, hard-condition checks and text relevance; refresh after delivery |
 | standard | mode 8 regular | Target 50/batch; stable unified search, profile relevance, realtime hydration/pruning |
 | beta | mode 7 | Target 50/batch; modern unified search, product promotion fit, optional visual screening |
 
@@ -34,13 +33,13 @@ turn the search into zero recall.
 ## Commands
 
 ```sh
-easykol search-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US' --regions US
-easykol search-v2 --mode standard --platform TIKTOK --sentence 'US beauty creators' --regions US --main-category beauty --sub-category makeup --has-tk-shop --last-published-days 30
-easykol search-v2 --mode standard --platform INSTAGRAM --sentence 'Fitness creators in UK' --regions GB
-easykol search-v2 --mode beta --platform YOUTUBE --sentence 'Running equipment reviewers' --product 'Running headphones' --audience 'Runners'
-easykol parse-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US'
-easykol task --task-id TASK_ID --offset 0 --limit 100
-easykol search-next --task-id COMPLETED_TASK_ID --idempotency-key campaign-next-002
+node "{baseDir}/scripts/api.cjs" search-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US' --regions US
+node "{baseDir}/scripts/api.cjs" search-v2 --mode standard --platform TIKTOK --sentence 'US beauty creators' --regions US --main-category beauty --sub-category makeup --has-tk-shop --last-published-days 30
+node "{baseDir}/scripts/api.cjs" search-v2 --mode standard --platform INSTAGRAM --sentence 'Fitness creators in UK' --regions GB
+node "{baseDir}/scripts/api.cjs" search-v2 --mode beta --platform YOUTUBE --sentence 'Running equipment reviewers' --product 'Running headphones' --audience 'Runners'
+node "{baseDir}/scripts/api.cjs" parse-v2 --mode fast --platform TIKTOK --sentence 'Gaming creators in US'
+node "{baseDir}/scripts/api.cjs" task --task-id TASK_ID --offset 0 --limit 100
+node "{baseDir}/scripts/api.cjs" search-next --task-id COMPLETED_TASK_ID --idempotency-key campaign-next-002
 ```
 
 `--no-wait` returns the task immediately; `--timeout` controls the polling wait.
@@ -66,7 +65,7 @@ whole quoted batch.
 
 ## Recovery
 
-The CLI saves exact request bodies and keys in ~/.easykol/search-tasks/ before
+The API helper saves exact request bodies and keys in ~/.easykol/search-tasks/ before
 submitting. With a task ID, keep reading that task. If submission timed out before
 an ID was received, run the same command with its printed `--idempotency-key`;
 `search-v2` can recover from the journal without repeating platform/sentence flags.

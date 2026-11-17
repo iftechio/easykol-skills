@@ -28,7 +28,7 @@ Draft or rewrite locally, then save within the user's authorized scope.
 ## Automatic follow-ups
 
 Read `email-followups-get --id` first. `email-followups-set --id --body-file ...`
-accepts `followupEmails: [{"content":"...","daysAfter":3}]` and requires
+accepts `followupEmails: [{"content":"...","daysAfter":3}]` with whole days >= 1 and requires
 `--confirm-scheduled-changes`. Saving synchronizes pending scheduled emails,
 including adding future follow-ups to active threads. Explain this impact and get
 authorization for the concrete sequence before setting the flag. Existing authorization
@@ -47,7 +47,7 @@ and reauthorization still use the web flow; do not claim API binding is supporte
 `email-sender-nickname --id --body-file` accepts `{"nickname":"Name"}`.
 `email-sender-limit --id --body-file` accepts `{"autoEmailDailyLimit":50}`;
 0 disables automatic sending on that mailbox, and the web maximum still applies.
-The limit concerns automatic emails, not a new cap on manual sends.
+The limit must be an integer and concerns automatic emails, not a new cap on manual sends.
 
 Before `email-send --body-file ... --confirm-send`, show the actual recipient,
 sender, subject, content, cc/bcc from the template and automatic follow-up sequence.

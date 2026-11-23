@@ -1,12 +1,18 @@
 const { spawnSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
 const { mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs')
-const { homedir, tmpdir } = require('node:os')
+const { tmpdir } = require('node:os')
 const { join } = require('node:path')
+const {
+  authorizationStatus,
+  startAuthorization,
+  pollAuthorization,
+  manageCredential,
+  finishWorkflowAuthorization,
+} = require('./feishu-easykol-auth.cjs')
 
 const apiOrigin = 'https://talent-marketing-api.aiwaifu.top'
 const endpoint = apiOrigin + '/external/v1/feishu/creator-metrics'
-const credentialEndpoint = apiOrigin + '/external/v1/feishu/credentials'
 const metrics = ['followerCount', 'medianPlayCount']
 const value = (value_type, value) => ({ value_type, value })
 const ref = (path) => value('ref', path)
@@ -55,7 +61,7 @@ function branchCondition(names) {
   }
 }
 
-function buildWorkflow(setup, token) {
+function buildWorkflow(setup, credential) {
   const sourceField = '$.trigger.' + setup.urlFieldId
   const urlRef = sourceField + (setup.urlFieldIsHyperlink ? '.link' : '')
   const target = {
@@ -85,7 +91,10 @@ function buildWorkflow(setup, token) {
       status: '已更新播放量中位数。当前达人缺少粉丝数，该列原值仅为历史记录。',
     },
   ]
-  const clientToken = createHash('sha256').update(JSON.stringify(setup)).digest('hex').slice(0, 32)
+  const clientToken = createHash('sha256')
+    .update(JSON.stringify([setup, credential.id]))
+    .digest('hex')
+    .slice(0, 32)
   return {
     client_token: clientToken,
     title: 'EasyKOL 达人数据自动回填 · ' + setup.tableName,
@@ -119,7 +128,7 @@ function buildWorkflow(setup, token) {
           method: 'GET',
           url: [text(endpoint)],
           queries: [{ key: 'url', value: [ref(urlRef)] }],
-          headers: [{ key: 'ek-api-key', value: [text(token)] }],
+          headers: [{ key: 'ek-api-key', value: [text(credential.token)] }],
           body_type: 'none',
           response_type: 'json',
           response_value: JSON.stringify({
@@ -161,52 +170,30 @@ function buildWorkflow(setup, token) {
   }
 }
 
-function loadCredentials() {
-  const directory = process.env.EASYKOL_CONFIG_DIR || join(homedir(), '.easykol')
+function completeAuthorization() {
   try {
-    const config = JSON.parse(readFileSync(join(directory, 'config.json'), 'utf8'))
-    if (typeof config.apiKey === 'string' && config.apiKey.trim()
-      && typeof config.email === 'string' && config.email.trim()) {
-      return { apiKey: config.apiKey.trim(), email: config.email.trim() }
-    }
+    finishWorkflowAuthorization()
   } catch {
-    // Report a fixed message so an invalid credential file is never echoed.
+    process.stderr.write('Unable to remove the temporary EasyKOL authorization. It will expire automatically.\n')
   }
-  throw new Error('Configure the intended EasyKOL account before creating the workflow.')
-}
-
-async function manageCredential(method, id) {
-  const { apiKey, email } = loadCredentials()
-  const url = id ? credentialEndpoint + '/' + encodeURIComponent(id) : credentialEndpoint
-  let response
-  let result
-  try {
-    response = await fetch(url, {
-      method,
-      headers: { 'ek-api-key': apiKey, 'ek-api-email': email },
-      redirect: 'error',
-      signal: AbortSignal.timeout(15000),
-    })
-    result = await response.json()
-  } catch {
-    throw new Error('Unable to reach the EasyKOL Feishu credential service.')
-  }
-  if (!response.ok || result.statusCode !== 1000) {
-    throw new Error('EasyKOL Feishu credential request failed (HTTP ' + response.status + ').')
-  }
-  return result.data
 }
 
 async function run() {
   const [mode, setupPath, profile, ...extraArgs] = process.argv.slice(2)
+  if (!setupPath && ['status', 'authorize', 'authorize-poll'].includes(mode)) {
+    const action = { status: authorizationStatus, authorize: startAuthorization, 'authorize-poll': pollAuthorization }
+    process.stdout.write(JSON.stringify(await action[mode]()) + '\n')
+    return
+  }
   if (mode === 'revoke' && /^[\w-]{1,64}$/.test(setupPath || '') && !profile) {
     const data = await manageCredential('DELETE', setupPath)
     if (data?.revoked !== true) throw new Error('EasyKOL did not confirm credential revocation.')
     process.stdout.write(JSON.stringify({ revoked: true }) + '\n')
+    completeAuthorization()
     return
   }
   if (!['preview', 'create'].includes(mode) || !setupPath || extraArgs.length) {
-    throw new Error('Usage: node feishu-workflow.cjs <preview|create> <setup.json> [profile], or revoke <credentialId>')
+    throw new Error('Usage: node feishu-workflow.cjs <status|authorize|authorize-poll>, <preview|create> <setup.json> [profile], or revoke <credentialId>')
   }
   let setup
   try {
@@ -215,12 +202,14 @@ async function run() {
     throw new Error('Check setup.json for the Base and field coordinates listed in the skill.')
   }
   const preview = mode === 'preview'
-  const credential = preview ? { token: 'ekf_preview_only' } : await manageCredential('POST')
+  const credential = preview
+    ? { id: 'preview', token: 'ekf_preview_only' }
+    : await manageCredential('POST')
   if (typeof credential?.token !== 'string'
     || (!preview && (!/^ekf_[\w-]{43}$/.test(credential.token) || !/^[\w-]{1,64}$/.test(credential.id || '')))) {
     throw new Error('EasyKOL did not return a usable Feishu credential.')
   }
-  const workflow = buildWorkflow(setup, credential.token)
+  const workflow = buildWorkflow(setup, credential)
   let directory
   try {
     directory = mkdtempSync(join(tmpdir(), 'easykol-feishu-workflow-'))
@@ -257,6 +246,7 @@ async function run() {
       throw new Error('Creation returned no usable workflow ID. Check workflow-list before retrying.')
     }
     process.stdout.write(JSON.stringify({ workflowId, credentialId: credential.id, enabled: false }) + '\n')
+    completeAuthorization()
   } catch (error) {
     if (preview) throw error
     throw new Error(error.message + ' Feishu credential ID: ' + credential.id)

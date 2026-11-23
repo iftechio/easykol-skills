@@ -83,6 +83,8 @@ For exact flags always run `node "{baseDir}/scripts/api.cjs" schema <cmd>` first
 
 ## 1. Getting Started
 
+For Feishu Bitable automation, follow [the Feishu workflow authorization and setup](references/feishu-workflow.md). Its first-time browser approval flow does not require asking the user for an EasyKOL API Key.
+
 At session start, run `node "{baseDir}/scripts/api.cjs" doctor`. This checks
 Node.js, existing configuration and connectivity without installing anything.
 

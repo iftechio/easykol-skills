@@ -1,10 +1,18 @@
 const { spawnSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
 const { mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs')
-const { homedir, tmpdir } = require('node:os')
+const { tmpdir } = require('node:os')
 const { join } = require('node:path')
+const {
+  authorizationStatus,
+  startAuthorization,
+  pollAuthorization,
+  manageCredential,
+  finishWorkflowAuthorization,
+} = require('./feishu-easykol-auth.cjs')
 
-const endpoint = 'https://talent-marketing-api.aiwaifu.top/external/v1/kol'
+const apiOrigin = 'https://talent-marketing-api.aiwaifu.top'
+const endpoint = apiOrigin + '/external/v1/feishu/creator-metrics'
 const metrics = ['followerCount', 'medianPlayCount']
 const value = (value_type, value) => ({ value_type, value })
 const ref = (path) => value('ref', path)
@@ -15,7 +23,7 @@ function readSetup(path) {
   const setup = JSON.parse(readFileSync(path, 'utf8'))
   const names = [
     'baseToken', 'tableId', 'tableName', 'urlFieldName', 'urlFieldId',
-    'followerFieldName', 'medianViewsFieldName',
+    'followerFieldName', 'medianViewsFieldName', 'recordIdFieldName', 'statusFieldName',
   ]
   if (!setup || names.some((name) =>
     typeof setup[name] !== 'string' || !setup[name].trim()
@@ -25,7 +33,10 @@ function readSetup(path) {
   if (!/^tbl[\w]+$/.test(setup.tableId) || !/^fld[\w]+$/.test(setup.urlFieldId)
     || !/^[\w]+$/.test(setup.baseToken)
     || typeof setup.urlFieldIsHyperlink !== 'boolean'
-    || new Set([setup.urlFieldName, setup.followerFieldName, setup.medianViewsFieldName]).size !== 3) {
+    || new Set([
+      setup.urlFieldName, setup.followerFieldName, setup.medianViewsFieldName,
+      setup.recordIdFieldName, setup.statusFieldName,
+    ]).size !== 5) {
     throw new Error('Setup has an invalid ID, URL field type or duplicate field name.')
   }
   return Object.fromEntries([...names, 'urlFieldIsHyperlink'].map((name) => [name, setup[name]]))
@@ -50,30 +61,62 @@ function branchCondition(names) {
   }
 }
 
-function buildWorkflow(setup, credentials) {
-  const urlRef = '$.trigger.' + setup.urlFieldId + (setup.urlFieldIsHyperlink ? '.link' : '')
+function buildWorkflow(setup, credential) {
+  const sourceField = '$.trigger.' + setup.urlFieldId
+  const urlRef = sourceField + (setup.urlFieldIsHyperlink ? '.link' : '')
+  const target = {
+    table_name: setup.tableName,
+    max_set_record_num: 1,
+    filter_info: {
+      conjunction: 'and',
+      conditions: [
+        { field_name: setup.recordIdFieldName, operator: 'is', value: [ref('$.trigger.recordId')] },
+        { field_name: setup.urlFieldName, operator: 'is', value: [ref(sourceField)] },
+      ],
+    },
+  }
+  const status = (message) => ({ field_name: setup.statusFieldName, value: [text(message)] })
   const fields = {
     followerCount: setup.followerFieldName,
     medianPlayCount: setup.medianViewsFieldName,
   }
   const cases = [
-    { id: 'both', title: '写入粉丝数和播放量中位数', names: metrics },
-    { id: 'followers', title: '写入粉丝数', names: ['followerCount'] },
-    { id: 'median', title: '写入播放量中位数', names: ['medianPlayCount'] },
+    { id: 'both', title: '写入粉丝数和播放量中位数', names: metrics, status: '已更新' },
+    {
+      id: 'followers', title: '写入粉丝数', names: ['followerCount'],
+      status: '已更新粉丝数。当前达人缺少播放量中位数，该列原值仅为历史记录。',
+    },
+    {
+      id: 'median', title: '写入播放量中位数', names: ['medianPlayCount'],
+      status: '已更新播放量中位数。当前达人缺少粉丝数，该列原值仅为历史记录。',
+    },
   ]
-  const token = createHash('sha256').update(JSON.stringify(setup)).digest('hex').slice(0, 32)
+  const clientToken = createHash('sha256')
+    .update(JSON.stringify([setup, credential.id]))
+    .digest('hex')
+    .slice(0, 32)
   return {
-    client_token: token,
+    client_token: clientToken,
     title: 'EasyKOL 达人数据自动回填 · ' + setup.tableName,
     steps: [
       {
         id: 'trigger',
         type: 'SetRecordTrigger',
         title: '达人主页链接修改时',
-        next: 'lookup',
+        next: 'pending',
         data: {
           table_name: setup.tableName,
           field_watch_info: [{ field_name: setup.urlFieldName, operator: 'isNotEmpty', value: [] }],
+        },
+      },
+      {
+        id: 'pending',
+        type: 'SetRecordAction',
+        title: '标记指标待更新',
+        next: 'lookup',
+        data: {
+          ...target,
+          field_values: [status('待更新。已有指标为历史记录，请以本次回填为准。')],
         },
       },
       {
@@ -85,10 +128,7 @@ function buildWorkflow(setup, credentials) {
           method: 'GET',
           url: [text(endpoint)],
           queries: [{ key: 'url', value: [ref(urlRef)] }],
-          headers: [
-            { key: 'ek-api-key', value: [text(credentials.apiKey)] },
-            { key: 'ek-api-email', value: [text(credentials.email)] },
-          ],
+          headers: [{ key: 'ek-api-key', value: [text(credential.token)] }],
           body_type: 'none',
           response_type: 'json',
           response_value: JSON.stringify({
@@ -113,42 +153,47 @@ function buildWorkflow(setup, credentials) {
           })),
         },
       },
-      ...cases.map(({ id, title, names }) => ({
+      ...cases.map(({ id, title, names, status: message }) => ({
         id,
         type: 'SetRecordAction',
         title,
         next: null,
         data: {
-          table_name: setup.tableName,
-          max_set_record_num: 1,
-          ref_info: { step_id: 'trigger' },
-          field_values: names.map((name) => ({
-            field_name: fields[name], value: [ref(metricPath(name))],
-          })),
+          ...target,
+          field_values: [
+            ...names.map((name) => ({ field_name: fields[name], value: [ref(metricPath(name))] })),
+            status(message),
+          ],
         },
       })),
     ],
   }
 }
 
-function loadCredentials() {
-  const directory = process.env.EASYKOL_CONFIG_DIR || join(homedir(), '.easykol')
+function completeAuthorization() {
   try {
-    const config = JSON.parse(readFileSync(join(directory, 'config.json'), 'utf8'))
-    if (typeof config.apiKey === 'string' && config.apiKey.trim()
-      && typeof config.email === 'string' && config.email.trim()) {
-      return { apiKey: config.apiKey.trim(), email: config.email.trim() }
-    }
+    finishWorkflowAuthorization()
   } catch {
-    // Report a fixed message so an invalid credential file is never echoed.
+    process.stderr.write('Unable to remove the temporary EasyKOL authorization. It will expire automatically.\n')
   }
-  throw new Error('Configure the intended EasyKOL account before creating the workflow.')
 }
 
-function run() {
+async function run() {
   const [mode, setupPath, profile, ...extraArgs] = process.argv.slice(2)
+  if (!setupPath && ['status', 'authorize', 'authorize-poll'].includes(mode)) {
+    const action = { status: authorizationStatus, authorize: startAuthorization, 'authorize-poll': pollAuthorization }
+    process.stdout.write(JSON.stringify(await action[mode]()) + '\n')
+    return
+  }
+  if (mode === 'revoke' && /^[\w-]{1,64}$/.test(setupPath || '') && !profile) {
+    const data = await manageCredential('DELETE', setupPath)
+    if (data?.revoked !== true) throw new Error('EasyKOL did not confirm credential revocation.')
+    process.stdout.write(JSON.stringify({ revoked: true }) + '\n')
+    completeAuthorization()
+    return
+  }
   if (!['preview', 'create'].includes(mode) || !setupPath || extraArgs.length) {
-    throw new Error('Usage: node feishu-workflow.cjs <preview|create> <setup.json> [profile]')
+    throw new Error('Usage: node feishu-workflow.cjs <status|authorize|authorize-poll>, <preview|create> <setup.json> [profile], or revoke <credentialId>')
   }
   let setup
   try {
@@ -157,10 +202,17 @@ function run() {
     throw new Error('Check setup.json for the Base and field coordinates listed in the skill.')
   }
   const preview = mode === 'preview'
-  const credentials = preview ? { apiKey: 'ek_preview_only', email: 'preview@example.com' } : loadCredentials()
-  const workflow = buildWorkflow(setup, credentials)
-  const directory = mkdtempSync(join(tmpdir(), 'easykol-feishu-workflow-'))
+  const credential = preview
+    ? { id: 'preview', token: 'ekf_preview_only' }
+    : await manageCredential('POST')
+  if (typeof credential?.token !== 'string'
+    || (!preview && (!/^ekf_[\w-]{43}$/.test(credential.token) || !/^[\w-]{1,64}$/.test(credential.id || '')))) {
+    throw new Error('EasyKOL did not return a usable Feishu credential.')
+  }
+  const workflow = buildWorkflow(setup, credential)
+  let directory
   try {
+    directory = mkdtempSync(join(tmpdir(), 'easykol-feishu-workflow-'))
     const path = join(directory, 'workflow.json')
     writeFileSync(path, JSON.stringify(workflow), { mode: 0o600 })
     const args = ['base', '+workflow-create', '--as', 'user', '--base-token', setup.baseToken, '--json', '@workflow.json']
@@ -193,15 +245,17 @@ function run() {
     if (typeof workflowId !== 'string' || !/^wkf[\w]+$/.test(workflowId)) {
       throw new Error('Creation returned no usable workflow ID. Check workflow-list before retrying.')
     }
-    process.stdout.write(JSON.stringify({ workflowId, enabled: false }) + '\n')
+    process.stdout.write(JSON.stringify({ workflowId, credentialId: credential.id, enabled: false }) + '\n')
+    completeAuthorization()
+  } catch (error) {
+    if (preview) throw error
+    throw new Error(error.message + ' Feishu credential ID: ' + credential.id)
   } finally {
-    rmSync(directory, { recursive: true, force: true })
+    if (directory) rmSync(directory, { recursive: true, force: true })
   }
 }
 
-try {
-  run()
-} catch (error) {
+run().catch((error) => {
   process.stderr.write(error.message + '\n')
   process.exitCode = 1
-}
+})

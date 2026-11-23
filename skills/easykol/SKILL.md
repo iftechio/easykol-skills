@@ -6,9 +6,10 @@ description: >-
   (natural-language search, lookalikes), creator profiling, audience analysis
   (age/gender/region/fake-follower rate), bulk email extraction, video analysis,
   email templates, connected senders, outreach sending and result queries,
-  and account setup. Use when the user mentions finding influencers, checking a
-  creator's audience, getting creator emails, analyzing a video, or setting up
-  EasyKOL access, managing EasyKOL email templates or sending outreach emails.
+  Feishu Bitable automation for creator metrics, and account setup. Use when the
+  user mentions finding influencers, checking a creator's audience, getting
+  creator emails, analyzing a video, automating creator metric backfill in
+  Feishu, setting up EasyKOL access, or managing EasyKOL email outreach.
 metadata: {"openclaw":{"requires":{"bins":["node"]},"homepage":"https://app.easykol.com/skills"}}
 ---
 
@@ -33,6 +34,7 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 - User wants audience demographics: age, gender, region, or fake-follower rate
 - User wants to bulk-extract emails for a list of creator URLs
 - User wants to analyze a video (views, likes, author)
+- User wants Codex to set up a Feishu automation that fills creator metrics when a URL changes
 - User needs to set up EasyKOL access or check remaining quota
 
 ## What This Skill Does Not Do
@@ -70,6 +72,7 @@ The API helper documents itself — use it rather than memorising parameters:
 | Get a creator's audience breakdown | `audience` |
 | Get emails for a list of creator URLs | `emails` |
 | Analyze a video / post by URL | `video` |
+| Set up automatic creator metric backfill in Feishu Bitable | Read `references/feishu-workflow.md` |
 | Manage email templates, senders or outreach | `email-*`; read `references/email.md` |
 | Check remaining credits | `quota` |
 | Setup / diagnostics | `auth`, `doctor` |

@@ -24,6 +24,37 @@ Both endpoints require the account email and a personal API key, which you can g
 
 Unknown metric values are `null`. These queries read stored data without refreshing a post or creating a tracking task.
 
+## Creator inventory lookups
+
+The full paths below use the same authentication headers as the other API operations.
+
+| Method and full path | Input | Billing |
+|---|---|---|
+| `POST /external/v1/creators/recent-posts` | JSON body with one YouTube, TikTok, or Instagram profile `url` and optional `limit` | 0.1 AI credits per successful query. Failed queries do not charge. |
+| `POST /external/v1/creators/by-email` | JSON body with one complete `email` and optional `limit` | 0.1 AI credits per returned creator. Zero matches are free. |
+
+Both limits are integers from 1 to 60 and default to 20. Both responses include
+`truncated`, which indicates that more matching inventory rows exist beyond the limit.
+Both include a `billing` object with `unit` (`AI_CREDIT`), `basis`
+(`per_query` or `per_creator`), `ratePoints`, `maxPoints`, and the server's
+actual `chargedPoints`. The default email lookup has a cap of 2 points.
+
+Recent posts returns `platform`, `profileUrl`, `profileUpdatedAt`, and `items`.
+Each item includes `id`, `type`, `url`, `text`, `publishedAt`, `viewCount`,
+`likeCount` and `commentCount`. Missing values are `null`, and known publication
+dates are ordered newest first. A profile missing from the inventory returns 404.
+An existing profile with no stored posts returns an empty array and still counts
+as a successful query. This endpoint reads the saved profile snapshot. A timeout
+or connection loss can leave the charge outcome uncertain. Do not retry
+automatically.
+
+Email lookup trims the address and matches it case-insensitively against current
+stored contact emails. Each entry in `creators` includes `id`, `platform`,
+`username`, `nickname`, `profileUrl`, and `followerCount`. Missing fields are
+`null`. The matched address and contact-source records are omitted from the
+response. After a timeout or connection loss, check the outcome before choosing
+whether to make another paid request.
+
 ## Authentication
 
 Every request requires two headers:

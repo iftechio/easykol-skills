@@ -873,6 +873,14 @@ function num(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : void 0;
 }
+function creatorLookupLimit(value) {
+  if (value === void 0) return void 0;
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 60) {
+    fail(EXIT.PARAMS, "--limit must be an integer between 1 and 60");
+  }
+  return limit;
+}
 function normPlatform(p) {
   const up = String(p ?? "").toUpperCase();
   if (up === "TIKTOK" || up === "YOUTUBE" || up === "INSTAGRAM") return up;
@@ -1008,6 +1016,52 @@ var API_COMMANDS = [
     }
   },
   {
+    name: "creator-recent-posts",
+    summary: "List recent posts stored for one YouTube, TikTok or Instagram creator profile",
+    billing: "0.1 AI credits per successful query; failed queries do not charge",
+    options: [
+      { flags: "--url <url>", description: "creator profile URL (required)" },
+      { flags: "--limit <n>", description: "maximum results, 1\u201360 (default 20)" }
+    ],
+    async run(opts) {
+      const url = required(opts.url, "--url");
+      const limit = creatorLookupLimit(opts.limit);
+      emit(await apiRequest({
+        method: "POST",
+        path: "/creators/recent-posts",
+        body: { url, limit },
+        timeoutMs: 45e3
+      }));
+    }
+  },
+  {
+    name: "creators-by-email",
+    summary: "Find stored YouTube, TikTok and Instagram creators matching one complete contact email",
+    billing: "0.1 AI credits per returned creator; no match is free; default cap 2 points",
+    options: [
+      { flags: "--email <email>", description: "exact contact email to match" },
+      { flags: "--email-stdin", description: "read the email to match from stdin" },
+      { flags: "--limit <n>", description: "maximum results and charge cap, 1\u201360 (default 20)" }
+    ],
+    async run(opts) {
+      const limit = creatorLookupLimit(opts.limit);
+      if (opts.email !== void 0 && opts.emailStdin) {
+        fail(EXIT.PARAMS, "Use --email or --email-stdin");
+      }
+      const input = opts.emailStdin ? await readStdin() : opts.email;
+      const email = required(input?.trim().toLowerCase(), "--email or --email-stdin");
+      if (email.length > 254 || !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email)) {
+        fail(EXIT.PARAMS, "Enter one complete email address");
+      }
+      emit(await apiRequest({
+        method: "POST",
+        path: "/creators/by-email",
+        body: { email, limit },
+        timeoutMs: 45e3
+      }));
+    }
+  },
+  {
     name: "emails",
     summary: "Bulk-extract emails for a list of creator profile URLs (async, ~60s)",
     billing: "1 quota per 5 URLs (rounded up)",
@@ -1106,6 +1160,7 @@ var API_COMMANDS = [
     billing: "20 quota per new analysis; free if cached within 30 days",
     options: [
       { flags: "--url <url>", description: "creator profile URL (required)" },
+      { flags: "--submit-only", description: "return the task ID and current status without polling" },
       { flags: "--timeout <s>", description: "poll timeout in seconds (default 120)" }
     ],
     async run(opts) {
@@ -1115,13 +1170,32 @@ var API_COMMANDS = [
         path: "/audience",
         body: { url }
       });
+      if (opts.submitOnly) {
+        emit(task);
+        return;
+      }
       if (task.status === "COMPLETED") {
         emit(task.result ?? task);
         return;
       }
+      process.stderr.write(`Audience task ${task.taskId}; resume with audience-result --task-id ${task.taskId}
+`);
       const timeoutMs = (num(opts.timeout) ?? 120) * 1e3;
       const done = await pollTask(`/audience/${task.taskId}`, 5e3, timeoutMs);
       emit(done.result ?? done);
+    }
+  },
+  {
+    name: "audience-result",
+    summary: "Read the status and result of an existing audience analysis task",
+    billing: "free",
+    options: [
+      { flags: "--task-id <id>", description: "task ID returned by audience (required)" }
+    ],
+    async run(opts) {
+      const taskId = required(opts.taskId, "--task-id");
+      if (!/^[a-zA-Z0-9_-]+$/.test(taskId)) fail(EXIT.PARAMS, "Invalid --task-id");
+      emit(await apiRequest({ path: `/audience/${taskId}`, timeoutMs: 15e3 }));
     }
   },
   {

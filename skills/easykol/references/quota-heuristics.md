@@ -27,10 +27,13 @@ a refund is final only when settlement.pending=false.
 | `task` | free | Existing task and stored pages |
 | `search` | **N raw quota** | Original V1 contract |
 | `kol` | 1 per 5 calls | Accumulates; charged every 5th call |
+| `creator-recent-posts` | 0.1 AI credits per successful query | An empty result for a stored profile counts as successful. Failed queries do not charge. |
+| `creators-by-email` | 0.1 AI credits per returned creator | Zero matches are free. Default cap of 20 creators costs at most 2 points. |
 | `video` | 1 per 5 calls | Accumulates; charged every 5th call |
 | `similar` | **10 quota** | Per call, regardless of result count |
 | `emails` | **1 per 5 URLs** | Rounded up; 1 URL = 1 quota, 6 URLs = 2 quota |
 | `audience` | **20 quota** | New analysis only; free if cached within 30 days |
+| `audience-result` | 0 | Read an existing audience task by ID |
 
 ## Search Session Budget
 

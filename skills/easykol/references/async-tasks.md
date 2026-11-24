@@ -2,8 +2,7 @@
 
 `search-v2`, `search-next`, `similar`, `emails`, and `audience` are asynchronous. Search
 recovery and result-page semantics are specified in [search-modes.md](search-modes.md).
-Do not resubmit search on polling timeout; read the existing task ID. The API helper handles
-polling internally — the agent does not need to manage task IDs or poll manually.
+After polling stops, continue reading the existing search or audience task by ID.
 
 ## Behaviour
 
@@ -24,8 +23,22 @@ The API helper blocks until the task completes or times out, then emits the stan
 | `emails` | 180s | `--timeout <seconds>` |
 | `audience` | 120s | `--timeout <seconds>` |
 
-For `similar`, `emails`, and `audience`, if the task times out (exit 1, message contains "timed out"), tell the user the
-analysis is taking longer than expected and suggest retrying with `--timeout 300`.
+If a task times out, report that it may still be running. A polling timeout alone
+does not establish that the submission failed.
+
+## Resume an audience report
+
+```bash
+node "{baseDir}/scripts/api.cjs" audience --url <url> --submit-only
+node "{baseDir}/scripts/api.cjs" audience-result --task-id <id>
+```
+
+Submit-only returns `taskId`, `status`, and any immediately available `result`.
+The normal `audience` command prints the task ID to stderr before polling and
+keeps its usual result on stdout. Each `audience-result` reads the same task once
+for free. Check again about every 5 seconds for `PENDING` or `PROCESSING` while
+the user is waiting. Stop on `COMPLETED` or `FAILED` and keep the task ID if the
+user wants to come back later. Query with the account that started the task.
 
 ## `audience` Cache Behaviour
 

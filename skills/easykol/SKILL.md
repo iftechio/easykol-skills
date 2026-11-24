@@ -4,7 +4,8 @@ description: >-
   Use when the user wants to discover, evaluate, or research creators / KOLs /
   influencers on YouTube, TikTok, or Instagram. Covers creator discovery
   (natural-language search, lookalikes), creator profiling, audience analysis
-  (age/gender/region/fake-follower rate), bulk email extraction, video analysis,
+  (age/gender/region/fake-follower rate), recent posts by profile URL, exact creator
+  lookup by email, bulk email extraction, video analysis,
   free reads of existing tracked placements and historical metrics,
   email templates, connected senders, outreach sending and result queries,
   Feishu Bitable automation for creator metrics, and account setup. Use when the
@@ -71,8 +72,11 @@ The API helper documents itself — use it rather than memorising parameters:
 | Find creators matching a description | `search-v2 --mode fast|standard|beta` (default fast); `parse-v2 --mode` for optional preview |
 | Find creators similar to a URL | `similar` |
 | Get a creator's profile by URL | `kol` |
+| List recent posts for a creator profile URL | `creator-recent-posts` (0.1 AI credits per successful query) |
 | Get a creator's audience breakdown | `audience` |
+| Check an existing audience report or resume after waiting stopped | `audience-result --task-id` |
 | Get emails for a list of creator URLs | `emails` |
+| Find stored creators linked to one exact contact email | `creators-by-email` |
 | Read existing tracked placements, including by placement tag, and their saved metrics or trends | `tracked-videos` / `tracked-video-trends` (free). Read `references/tracked-videos.md` |
 | Fetch video / post data independently by URL | `video` |
 | Set up automatic creator metric backfill in Feishu Bitable | Read `references/feishu-workflow.md` |
@@ -227,6 +231,9 @@ nickname, follower count, avg performance, region, language, and email (if on fi
 This is the first thing to run when the user pastes a creator URL or asks "what can
 you tell me about this creator?"
 
+When present, `medianPlayCount` and `medianLikeCount` summarize up to 10 recent
+non-pinned posts. Use the corresponding sample counts and retain missing values.
+
 ### Audience Analysis
 
 Run `node "{baseDir}/scripts/api.cjs" audience --url <profile-url>` to fetch:
@@ -238,6 +245,13 @@ Run `node "{baseDir}/scripts/api.cjs" audience --url <profile-url>` to fetch:
 Results are cached for 30 days — the command returns immediately on a cache hit.
 A new analysis is async and takes up to 2 min. Tell the user you are fetching the
 analysis if it takes time.
+
+For a new report that may outlast the current session, use
+`audience --url <profile-url> --submit-only` and keep the returned `taskId`.
+Use `audience-result --task-id <id>` to read its status and results for free.
+If regular polling stops, recover the task ID from stderr and query the same task.
+If submission ended before an ID was returned, report the uncertain outcome
+without submitting again automatically.
 
 Interpret results for the user: highlight whether the audience is concentrated in T1
 markets, whether the gender split fits the campaign brief, and flag if `suspectedFakeRate`
@@ -261,7 +275,28 @@ For `email-send`, network errors, timeouts and 5xx can mean uncertain delivery:
 **never apply the generic retry rule below to email sending**. Read records first.
 New mailbox binding and reauthorization remain in the web flow.
 
+### Recent Posts by Profile URL
+
+Use `creator-recent-posts --url <profile-url>` to read the stored recent works for
+one YouTube, TikTok, or Instagram creator. The default is 20 items, with up to 60
+via `--limit`. A successful query costs 0.1 AI credits, including an empty result
+for a profile found in inventory. Failed queries do not charge. Report the actual
+charge from `billing.chargedPoints`. Show the available publication dates and the
+profile snapshot update time separately. Keep missing metrics unknown and
+identify YouTube Shorts separately from videos. An empty sample or a profile
+missing in inventory does not establish inactivity. Use [creator lookup](references/creator-lookup.md)
+for URL formats and response details.
+
 ## 4. Retrieving Emails
+
+For an email-to-creator request, use `creators-by-email` with one complete email
+and an appropriate result cap. Explain that each returned creator costs 0.1 AI
+credits and an empty result is free. With the default cap of 20 creators, the
+maximum charge is 2 points. After the query, report the actual charge from
+`billing.chargedPoints`. The lookup uses
+stored exact matches and may return several accounts. After a timeout or
+uncertain response, do not automatically submit the paid lookup again.
+See [creator lookup](references/creator-lookup.md) for output boundaries.
 
 **Important distinction**: `node "{baseDir}/scripts/api.cjs" kol` already returns the creator's visible email
 from the platform profile. Do NOT run `node "{baseDir}/scripts/api.cjs" emails` just because the user asks about
@@ -305,8 +340,9 @@ creator's recent content before outreach.
 
 ## Error Handling
 
-Sending is never retried automatically, including on 429, network errors, timeouts
-or 5xx. Recover paid search using the original key/task. Retry a failed read at most
+Sending and the paid `creator-recent-posts` and `creators-by-email` commands are
+never retried automatically, including on 429, network errors, timeouts or 5xx.
+Recover paid search using the original key/task. Retry a failed free read at most
 once with backoff; other mutations require checking the existing result first.
 
 For all failures, use the API helper response:
@@ -323,9 +359,8 @@ For all failures, use the API helper response:
 | 7 | Rate limit | Back off for reads; check mutation outcome before any repeat |
 | 8 | Search session budget | Stop, ask user; retry with `--confirm-spend` only if approved |
 
-For async commands (`similar`, `emails`, `audience`), if the command times out
-(exit 1 with "timed out"), tell the user the task is taking longer than expected and
-suggest retrying with `--timeout 300`.
+If an async command times out, report that the task may still be running.
+For an audience report, use `audience-result` with the original task ID.
 
 Run `node "{baseDir}/scripts/api.cjs" doctor` as a first diagnostic when the cause is unclear.
 

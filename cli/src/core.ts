@@ -168,6 +168,7 @@ export function failHttp(base: string, r: RawResult): never {
   if (r.status === 400) fail(EXIT.PARAMS, msg)
   if (
     r.status === 402 ||
+    (r.status === 403 && lower.includes('ai credits exhausted')) ||
     lower.includes('quota') ||
     lower.includes('配额') ||
     lower.includes('insufficient')

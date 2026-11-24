@@ -4,6 +4,9 @@
 // src/skill.ts
 var import_node_util = require("util");
 
+// src/commands.ts
+var import_node_crypto2 = require("crypto");
+
 // src/search.ts
 var import_node_crypto = require("crypto");
 var import_node_fs2 = require("fs");
@@ -114,7 +117,7 @@ function failHttp(base, r) {
   if (r.status === 401) fail(EXIT.UNAUTH, msg);
   if (r.status === 429) fail(EXIT.RATELIMIT, msg);
   if (r.status === 400) fail(EXIT.PARAMS, msg);
-  if (r.status === 402 || lower.includes("quota") || lower.includes("\u914D\u989D") || lower.includes("insufficient")) {
+  if (r.status === 402 || r.status === 403 && lower.includes("ai credits exhausted") || lower.includes("quota") || lower.includes("\u914D\u989D") || lower.includes("insufficient")) {
     fail(EXIT.QUOTA, msg, {
       url: `${base}/skills/dashboard#quota`,
       hint: "Insufficient quota \u2014 top up"
@@ -904,12 +907,15 @@ var FILTER_OPTIONS = [
   { flags: "--avg-min <n>", description: "min avg views (TT/YT) or avg likes (IG)" },
   { flags: "--avg-max <n>", description: "max avg views (TT/YT) or avg likes (IG)" }
 ];
-async function pollTask(path2, intervalMs = 3e3, timeoutMs = 12e4) {
+async function pollTask(path2, intervalMs = 3e3, timeoutMs = 12e4, requestTimeoutMs) {
   const cfg = loadConfig();
   const base = process.env.EASYKOL_API_BASE || cfg.apiBase || DEFAULT_API_BASE;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const r = await apiCall({ path: path2 });
+    const r = await apiCall({
+      path: path2,
+      timeoutMs: requestTimeoutMs === void 0 ? void 0 : Math.max(1, Math.min(requestTimeoutMs, deadline - Date.now()))
+    });
     if (r.networkError) fail(EXIT.NETWORK, `Network error: ${r.networkError}`);
     if (!r.ok) failHttp(base, r);
     const task = r.json?.data ?? r.json;
@@ -1152,6 +1158,65 @@ var API_COMMANDS = [
       const url = required(opts.url, "--url");
       const data = await apiRequest({ path: "/video", query: { url } });
       emit(data);
+    }
+  },
+  {
+    name: "video-analysis",
+    summary: "Analyze the picture and audio of a TikTok or Instagram video",
+    billing: "0.5 AI credits per new task, same as the browser extension",
+    options: [
+      { flags: "--url <url>", description: "TikTok or Instagram video URL (required)" },
+      { flags: "--prompt <text>", description: "analysis instructions, 1\u20132000 characters (required)" },
+      { flags: "--language <tag>", description: "output language, e.g. zh-CN (default en)" },
+      { flags: "--task-id <uuid>", description: "reuse the original ID and inputs to recover a submission" },
+      { flags: "--submit-only", description: "return the task ID and status without polling" },
+      { flags: "--timeout <s>", description: "poll timeout in seconds (default 600)" }
+    ],
+    async run(opts) {
+      const url = required(opts.url, "--url").trim();
+      const prompt = required(opts.prompt, "--prompt").trim();
+      const language = opts.language ?? "en";
+      const taskId = (opts.taskId ?? (0, import_node_crypto2.randomUUID)()).toLowerCase();
+      const timeout = opts.timeout === void 0 ? 600 : Number(opts.timeout);
+      if (!url || url.length > 2048) fail(EXIT.PARAMS, "Enter one valid video URL");
+      if (!prompt || [...prompt].length > 2e3) fail(EXIT.PARAMS, "The prompt must be 1\u20132000 characters");
+      if (language.length > 35 || !/^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$/i.test(language)) {
+        fail(EXIT.PARAMS, "Use a valid --language tag such as zh-CN");
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(taskId)) {
+        fail(EXIT.PARAMS, "Use the task UUID printed by the original submission");
+      }
+      if (!Number.isInteger(timeout) || timeout < 0 || timeout > 600) {
+        fail(EXIT.PARAMS, "--timeout must be an integer between 0 and 600 seconds");
+      }
+      process.stderr.write(`Video analysis task ${taskId}. Read with video-analysis-result --task-id ${taskId}
+`);
+      const task = await apiRequest({
+        method: "POST",
+        path: "/ai-video-analysis",
+        body: { taskId, url, prompt, language },
+        timeoutMs: 45e3
+      });
+      if (task.taskId !== taskId) fail(EXIT.GENERIC, "Unexpected video analysis task ID");
+      if (opts.submitOnly || task.status === "COMPLETED" || task.status === "FAILED") {
+        emit(task);
+        return;
+      }
+      const result = await pollTask(`/ai-video-analysis/${taskId}`, 5e3, timeout * 1e3, 15e3);
+      emit({ ...result, pricePoints: task.pricePoints });
+    }
+  },
+  {
+    name: "video-analysis-result",
+    summary: "Read the status or report of an existing video analysis task",
+    billing: "free",
+    options: [
+      { flags: "--task-id <id>", description: "ID of the existing video analysis task (required)" }
+    ],
+    async run(opts) {
+      const taskId = required(opts.taskId, "--task-id");
+      if (!/^[a-zA-Z0-9_-]{1,64}$/.test(taskId)) fail(EXIT.PARAMS, "Invalid --task-id");
+      emit(await apiRequest({ path: `/ai-video-analysis/${taskId}`, timeoutMs: 15e3 }));
     }
   },
   {

@@ -14,6 +14,7 @@ Platform values passed to API helper: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per 
 | `audience` | ✅ | ✅ | ✅ |
 | `emails` | ✅ | ✅ | ✅ |
 | `video` | ✅ | ✅ | ✅ (posts/reels) |
+| `video-analysis` | — | ✅ (video) | ✅ (video posts/reels) |
 
 ## Field Notes by Command
 

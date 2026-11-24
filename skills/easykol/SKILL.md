@@ -5,7 +5,8 @@ description: >-
   influencers on YouTube, TikTok, or Instagram. Covers creator discovery
   (natural-language search, lookalikes), creator profiling, audience analysis
   (age/gender/region/fake-follower rate), recent posts by profile URL, exact creator
-  lookup by email, bulk email extraction, video analysis,
+  lookup by email, bulk email extraction, video metrics and AI content analysis
+  of TikTok and Instagram videos,
   free reads of existing tracked placements and historical metrics,
   email templates, connected senders, outreach sending and result queries,
   Feishu Bitable automation for creator metrics, and account setup. Use when the
@@ -35,7 +36,7 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 - User wants to check a creator's profile, follower count, or contact info
 - User wants audience demographics: age, gender, region, or fake-follower rate
 - User wants to bulk-extract emails for a list of creator URLs
-- User wants to analyze a video (views, likes, author)
+- User wants video metrics or wants AI to analyze, break down or translate a TikTok or Instagram video
 - User wants to see their existing tracked videos, campaign placement metrics or saved trends
 - User wants Codex to set up a Feishu automation that fills creator metrics when a URL changes
 - User needs to set up EasyKOL access or check remaining quota
@@ -43,7 +44,6 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 ## What This Skill Does Not Do
 
 - Post content, send DMs, or interact with social platforms
-- Return content not yet in the EasyKOL database
 - Make final campaign-budget or partnership decisions
 - Work in a chat environment that cannot execute the bundled Node.js script
 
@@ -79,6 +79,7 @@ The API helper documents itself — use it rather than memorising parameters:
 | Find stored creators linked to one exact contact email | `creators-by-email` |
 | Read existing tracked placements, including by placement tag, and their saved metrics or trends | `tracked-videos` / `tracked-video-trends` (free). Read `references/tracked-videos.md` |
 | Fetch video / post data independently by URL | `video` |
+| Analyze, break down or translate TikTok / Instagram video content | `video-analysis` or `video-analysis-result` for an existing task. Read [video analysis](references/video-analysis.md) |
 | Set up automatic creator metric backfill in Feishu Bitable | Read `references/feishu-workflow.md` |
 | Manage email templates, senders or outreach | `email-*`; read `references/email.md` |
 | Check remaining credits | `quota` |
@@ -320,7 +321,10 @@ and share the URL.
 
 ---
 
-## 5. Analyzing a Video
+## 5. Video Metrics and AI Content Analysis
+
+For analysis of the actual video, use [video analysis](references/video-analysis.md).
+New tasks cost **0.5 AI credits each**. Reading an existing result is free.
 
 Run `node "{baseDir}/scripts/api.cjs" video --url <video-url>` to fetch video metadata: title, view count,
 like count, comment count, share count, Instagram Repost count when supplied,

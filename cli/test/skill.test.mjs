@@ -146,3 +146,53 @@ test('audience reports resume by ID without submitting another analysis', async 
     ['GET', '/external/v1/audience/audience-1'],
   ])
 })
+
+test('video analysis prints the recovery ID and can read the report after a lost submission response', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'easykol-video-analysis-'))
+  const requests = []
+  const path = '/external/v1/ai-video-analysis'
+  const taskId = '3e17caad-17ff-44c7-8f8b-a1fb09cd1668'
+  const report = { taskId, status: 'COMPLETED', result: { response: '内容拆解' } }
+  let loseSubmission = true
+  const server = createServer(async (req, res) => {
+    let raw = ''
+    for await (const chunk of req) raw += chunk
+    requests.push({ method: req.method, path: req.url, body: raw ? JSON.parse(raw) : undefined })
+    if (req.method === 'POST' && loseSubmission) return req.socket.destroy()
+    res.setHeader('content-type', 'application/json')
+    res.end(JSON.stringify({
+      data: req.method === 'POST' ? { taskId, status: 'PENDING', pricePoints: 0.5 } : report,
+    }))
+  })
+  t.after(async () => {
+    await new Promise((resolve) => server.close(resolve))
+    rmSync(dir, { recursive: true, force: true })
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  writeFileSync(join(dir, 'config.json'), JSON.stringify({ apiKey: 'test-only', email: 'test@example.com' }))
+  const entry = fileURLToPath(new URL('../../skills/easykol/scripts/api.cjs', import.meta.url))
+  const execute = promisify(execFile)
+  const run = (args) => execute(process.execPath, [entry, ...args], {
+    env: { ...process.env, EASYKOL_CONFIG_DIR: dir, EASYKOL_API_BASE: `http://127.0.0.1:${server.address().port}` },
+  })
+  const url = 'https://www.instagram.com/reel/ABC123/'
+  const prompt = '拆解开头和剪辑'
+  const submit = ['video-analysis', '--url', url, '--prompt', prompt, '--language', 'zh-CN', '--task-id', taskId]
+  await assert.rejects(run(submit), (error) => {
+    assert.equal(error.code, 5)
+    assert.ok(error.stderr.includes(taskId))
+    return true
+  })
+  const read = await run(['video-analysis-result', '--task-id', taskId])
+  assert.deepEqual(JSON.parse(read.stdout).data, report)
+  assert.deepEqual(requests, [
+    { method: 'POST', path, body: { taskId, url, prompt, language: 'zh-CN' } },
+    { method: 'GET', path: `${path}/${taskId}`, body: undefined },
+  ])
+
+  loseSubmission = false
+  requests.length = 0
+  const normal = await run(submit)
+  assert.deepEqual(JSON.parse(normal.stdout).data, { ...report, pricePoints: 0.5 })
+  assert.deepEqual(requests.map((req) => req.method), ['POST', 'GET'])
+})

@@ -13,6 +13,21 @@ provides `shareCount`; the current YouTube details contract provides neither
 metric. For either field, `null` means unavailable from the upstream response,
 not zero.
 
+### AI video content analysis
+
+`POST /ai-video-analysis` creates an asynchronous content analysis for a TikTok
+or Instagram video up to 20 minutes. Send a client-generated UUID v4
+`taskId`, the video `url`, a `prompt` of 1–2000 characters, and optionally a
+language tag `language` (default `en`). The response includes `taskId`,
+`status` and `pricePoints`.
+
+Each new accepted task costs **0.5 AI credits**, using the browser extension's
+video analysis rate. Resubmitting the same ID and inputs adds no charge. After
+an uncertain submission, read the original ID before resubmitting with that ID.
+
+`GET /ai-video-analysis/:taskId` is free and requires the account that submitted
+the task through this API. A completed task returns `result.response` and `result.processedAt`.
+
 ---
 
 ## Existing tracked videos and posts

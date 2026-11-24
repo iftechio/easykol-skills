@@ -73,7 +73,7 @@ The API helper documents itself — use it rather than memorising parameters:
 | Get a creator's profile by URL | `kol` |
 | Get a creator's audience breakdown | `audience` |
 | Get emails for a list of creator URLs | `emails` |
-| Read existing tracked placements and their saved metrics or trends | `tracked-videos` / `tracked-video-trends` (free). Read `references/tracked-videos.md` |
+| Read existing tracked placements, including by placement tag, and their saved metrics or trends | `tracked-videos` / `tracked-video-trends` (free). Read `references/tracked-videos.md` |
 | Fetch video / post data independently by URL | `video` |
 | Set up automatic creator metric backfill in Feishu Bitable | Read `references/feishu-workflow.md` |
 | Manage email templates, senders or outreach | `email-*`; read `references/email.md` |

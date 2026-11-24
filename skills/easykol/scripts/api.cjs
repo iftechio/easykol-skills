@@ -1045,10 +1045,14 @@ var API_COMMANDS = [
       { flags: "--page-size <number>", description: "records per page, 1\u2013100 (default 20)" },
       { flags: "--platform <name>", description: "platform code, such as TIKTOK, YOUTUBE or INSTAGRAM" },
       { flags: "--blogger-name <text>", description: "creator name or account keyword" },
+      { flags: "--tag-name <text>", description: "exact EasyKOL placement tag name" },
       { flags: "--start-date <date>", description: "published on or after YYYY-MM-DD in UTC" },
       { flags: "--end-date <date>", description: "published on or before YYYY-MM-DD in UTC" }
     ],
     async run(opts) {
+      if (opts.tagName !== void 0 && !opts.tagName.trim()) {
+        fail(EXIT.PARAMS, "--tag-name must contain a nonempty tag name");
+      }
       emit(await apiRequest({
         path: "/tracking/videos",
         query: {
@@ -1056,6 +1060,7 @@ var API_COMMANDS = [
           pageSize: opts.pageSize,
           platform: opts.platform?.toUpperCase(),
           bloggerName: opts.bloggerName,
+          tagName: opts.tagName,
           startDate: opts.startDate,
           endDate: opts.endDate
         },

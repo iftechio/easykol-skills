@@ -228,6 +228,52 @@ export const API_COMMANDS: CommandDef[] = [
     },
   },
   {
+    name: 'tracked-videos',
+    summary: 'Read saved metrics for existing EasyKOL tracked videos and posts',
+    billing: 'free (0 AI credits)',
+    options: [
+      { flags: '--page <number>', description: 'page number (default 1)' },
+      { flags: '--page-size <number>', description: 'records per page, 1–100 (default 20)' },
+      { flags: '--platform <name>', description: 'platform code, such as TIKTOK, YOUTUBE or INSTAGRAM' },
+      { flags: '--blogger-name <text>', description: 'creator name or account keyword' },
+      { flags: '--start-date <date>', description: 'published on or after YYYY-MM-DD in UTC' },
+      { flags: '--end-date <date>', description: 'published on or before YYYY-MM-DD in UTC' },
+    ],
+    async run(opts) {
+      emit(await apiRequest({
+        path: '/tracking/videos',
+        query: {
+          page: opts.page,
+          pageSize: opts.pageSize,
+          platform: opts.platform?.toUpperCase(),
+          bloggerName: opts.bloggerName,
+          startDate: opts.startDate,
+          endDate: opts.endDate,
+        },
+        timeoutMs: 30_000,
+      }))
+    },
+  },
+  {
+    name: 'tracked-video-trends',
+    summary: 'Read saved historical metrics for up to 20 EasyKOL tracked placements',
+    billing: 'free (0 AI credits)',
+    options: [
+      { flags: '--publication-ids <list>', description: 'comma-separated tracking record IDs (required)' },
+    ],
+    async run(opts) {
+      const ids = required<string>(opts.publicationIds, '--publication-ids').split(',').map((id) => id.trim())
+      if (ids.some((id) => !id) || ids.length > 20) {
+        fail(EXIT.PARAMS, '--publication-ids must contain 1–20 nonempty tracking record IDs')
+      }
+      emit(await apiRequest({
+        path: '/tracking/video-trends',
+        query: { publicationIds: ids.join(',') },
+        timeoutMs: 30_000,
+      }))
+    },
+  },
+  {
     name: 'video',
     summary: 'Fetch video / post data by URL (YouTube, TikTok, Instagram, Facebook, Threads)',
     billing: 'every 5 calls = 1 quota',

@@ -8,7 +8,7 @@ await build({
   outDir: fileURLToPath(new URL('../../skills/easykol/scripts', import.meta.url)),
   outExtension: () => ({ js: '.cjs' }),
   config: false,
-  clean: true,
+  clean: false,
   bundle: true,
   platform: 'node',
   format: ['cjs'],

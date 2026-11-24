@@ -1037,6 +1037,57 @@ var API_COMMANDS = [
     }
   },
   {
+    name: "tracked-videos",
+    summary: "Read saved metrics for existing EasyKOL tracked videos and posts",
+    billing: "free (0 AI credits)",
+    options: [
+      { flags: "--page <number>", description: "page number (default 1)" },
+      { flags: "--page-size <number>", description: "records per page, 1\u2013100 (default 20)" },
+      { flags: "--platform <name>", description: "platform code, such as TIKTOK, YOUTUBE or INSTAGRAM" },
+      { flags: "--blogger-name <text>", description: "creator name or account keyword" },
+      { flags: "--tag-name <text>", description: "exact EasyKOL placement tag name" },
+      { flags: "--start-date <date>", description: "published on or after YYYY-MM-DD in UTC" },
+      { flags: "--end-date <date>", description: "published on or before YYYY-MM-DD in UTC" }
+    ],
+    async run(opts) {
+      if (opts.tagName !== void 0 && !opts.tagName.trim()) {
+        fail(EXIT.PARAMS, "--tag-name must contain a nonempty tag name");
+      }
+      emit(await apiRequest({
+        path: "/tracking/videos",
+        query: {
+          page: opts.page,
+          pageSize: opts.pageSize,
+          platform: opts.platform?.toUpperCase(),
+          bloggerName: opts.bloggerName,
+          tagName: opts.tagName,
+          startDate: opts.startDate,
+          endDate: opts.endDate
+        },
+        timeoutMs: 3e4
+      }));
+    }
+  },
+  {
+    name: "tracked-video-trends",
+    summary: "Read saved historical metrics for up to 20 EasyKOL tracked placements",
+    billing: "free (0 AI credits)",
+    options: [
+      { flags: "--publication-ids <list>", description: "comma-separated tracking record IDs (required)" }
+    ],
+    async run(opts) {
+      const ids = required(opts.publicationIds, "--publication-ids").split(",").map((id2) => id2.trim());
+      if (ids.some((id2) => !id2) || ids.length > 20) {
+        fail(EXIT.PARAMS, "--publication-ids must contain 1\u201320 nonempty tracking record IDs");
+      }
+      emit(await apiRequest({
+        path: "/tracking/video-trends",
+        query: { publicationIds: ids.join(",") },
+        timeoutMs: 3e4
+      }));
+    }
+  },
+  {
     name: "video",
     summary: "Fetch video / post data by URL (YouTube, TikTok, Instagram, Facebook, Threads)",
     billing: "every 5 calls = 1 quota",

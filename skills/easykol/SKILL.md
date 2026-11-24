@@ -5,6 +5,7 @@ description: >-
   influencers on YouTube, TikTok, or Instagram. Covers creator discovery
   (natural-language search, lookalikes), creator profiling, audience analysis
   (age/gender/region/fake-follower rate), bulk email extraction, video analysis,
+  free reads of existing tracked placements and historical metrics,
   email templates, connected senders, outreach sending and result queries,
   Feishu Bitable automation for creator metrics, and account setup. Use when the
   user mentions finding influencers, checking a creator's audience, getting
@@ -34,6 +35,7 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 - User wants audience demographics: age, gender, region, or fake-follower rate
 - User wants to bulk-extract emails for a list of creator URLs
 - User wants to analyze a video (views, likes, author)
+- User wants to see their existing tracked videos, campaign placement metrics or saved trends
 - User wants Codex to set up a Feishu automation that fills creator metrics when a URL changes
 - User needs to set up EasyKOL access or check remaining quota
 
@@ -71,7 +73,8 @@ The API helper documents itself — use it rather than memorising parameters:
 | Get a creator's profile by URL | `kol` |
 | Get a creator's audience breakdown | `audience` |
 | Get emails for a list of creator URLs | `emails` |
-| Analyze a video / post by URL | `video` |
+| Read existing tracked placements, including by placement tag, and their saved metrics or trends | `tracked-videos` / `tracked-video-trends` (free). Read `references/tracked-videos.md` |
+| Fetch video / post data independently by URL | `video` |
 | Set up automatic creator metric backfill in Feishu Bitable | Read `references/feishu-workflow.md` |
 | Manage email templates, senders or outreach | `email-*`; read `references/email.md` |
 | Check remaining credits | `quota` |

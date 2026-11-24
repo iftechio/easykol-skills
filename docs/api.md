@@ -17,7 +17,7 @@ not zero.
 
 ## Existing tracked videos and posts
 
-Both endpoints require a personal API key, available from the EasyKOL Skill setup page, and the account email. They follow the account's web placement visibility. Reads cost **0 AI credits**, including when the balance is zero.
+Both endpoints require the account email and a personal API key, which you can get or regenerate on the EasyKOL Skill setup page. The list follows the web placement visibility. Trend history is limited to the account's own placements, as on the web. Reads cost **0 AI credits**, including when the balance is zero.
 
 - `GET /tracking/videos` lists stored placement metrics, including views, likes, comments, favorites and shares. Optional query parameters are `page` (starts at 1), `pageSize` (default 20, maximum 100), `platform` (platform code), `bloggerName`, `tagName` (full name of a visible placement tag), `startDate` and `endDate` (inclusive UTC publication dates in `YYYY-MM-DD` format). The response contains `data`, `total`, `page`, `pageSize` and `totalPages`. Each row has a tracking record `id` and indicates whether trend tracking was configured. `updatedAt` is the record update time.
 - `GET /tracking/video-trends?publicationIds=<id1,id2>` takes up to 20 tracking record IDs from the list. It returns saved snapshots with `capturedAt` and metric counts. An empty `points` array means there are no stored snapshots for the current strategy. Inaccessible or missing records are omitted.

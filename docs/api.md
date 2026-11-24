@@ -25,8 +25,8 @@ Each new accepted task costs **0.5 AI credits**, using the browser extension's
 video analysis rate. Resubmitting the same ID and inputs adds no charge. After
 an uncertain submission, read the original ID before resubmitting with that ID.
 
-`GET /ai-video-analysis/:taskId` is free and requires the account that created
-the task. A completed task returns `result.response` and `result.processedAt`.
+`GET /ai-video-analysis/:taskId` is free and requires the account that submitted
+the task through this API. A completed task returns `result.response` and `result.processedAt`.
 
 ---
 

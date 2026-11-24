@@ -26,7 +26,7 @@ content are outside this command's scope.
 
 3. Keep the task ID the helper prints before submission. The helper waits up to
    10 minutes by default. With `--submit-only`, it returns after acceptance.
-   Read an existing task for free with the account that created it.
+   Read a task submitted through the Skill or API for free with the account that created it.
 
    ```sh
    node "{baseDir}/scripts/api.cjs" video-analysis-result --task-id "<task ID>"

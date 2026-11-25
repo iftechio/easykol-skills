@@ -34,7 +34,7 @@ a refund is final only when settlement.pending=false.
 | `video-analysis-result` | free | Read the status and report of an existing task by ID |
 | `similar` | **10 quota** | Per call, regardless of result count |
 | `emails` | **1 per 5 URLs** | Rounded up; 1 URL = 1 quota, 6 URLs = 2 quota |
-| `audience` | **20 quota** | New analysis only; free if cached within 30 days |
+| `audience` | **1 / 2 / 6 AI credits** | 1× / 2× / 6× sample tiers (default 2×); recent results at the same or a higher tier can be reused for free |
 | `audience-result` | 0 | Read an existing audience task by ID |
 
 ## Search Session Budget

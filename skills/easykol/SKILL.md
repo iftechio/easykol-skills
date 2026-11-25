@@ -237,15 +237,25 @@ non-pinned posts. Use the corresponding sample counts and retain missing values.
 
 ### Audience Analysis
 
+Use the user's requested sample tier, or default to 2× without asking them to
+choose. Set `--data-multiplier 1|2|6` to select a tier:
+
+- **1× · 1 AI credit** — small sample for trying the feature.
+- **2× · 2 AI credits (default)** — recommended for routine analysis.
+- **6× · 6 AI credits** — larger sample for evaluating higher-priced creators.
+
+These are prices for new reports. A completed report from the past 30 days
+at the same or a higher tier can be reused for free. A lower-tier result does
+not substitute for a higher-tier request.
+
 Run `node "{baseDir}/scripts/api.cjs" audience --url <profile-url>` to fetch:
 
 - **Portrait**: age distribution (under18 / 18–25 / 25–45 / above45) and gender split
 - **Region**: top audience countries with T1/T2/T3 development level
 - **Fake followers**: suspected fake rate, fake count, total sample size
 
-Results are cached for 30 days — the command returns immediately on a cache hit.
-A new analysis is async and takes up to 2 min. Tell the user you are fetching the
-analysis if it takes time.
+A cache hit returns immediately. A new analysis runs asynchronously and can
+outlast the default 120-second wait. Tell the user if it takes time.
 
 For a new report that may outlast the current session, use
 `audience --url <profile-url> --submit-only` and keep the returned `taskId`.

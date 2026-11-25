@@ -414,18 +414,23 @@ export const API_COMMANDS: CommandDef[] = [
   {
     name: 'audience',
     summary: 'Fetch audience analysis for a creator: age/gender/region/fake-follower rate (async if not cached)',
-    billing: '20 quota per new analysis; free if cached within 30 days',
+    billing: '1× / 2× / 6× use 1 / 2 / 6 AI credits per new analysis; eligible cached reports are free',
     options: [
       { flags: '--url <url>', description: 'creator profile URL (required)' },
+      { flags: '--data-multiplier <1|2|6>', description: 'sample tier (default 2); 1× to try, 2× for routine analysis, 6× for deeper evaluation' },
       { flags: '--submit-only', description: 'return the task ID and current status without polling' },
       { flags: '--timeout <s>', description: 'poll timeout in seconds (default 120)' },
     ],
     async run(opts) {
       const url = required<string>(opts.url, '--url')
+      const tier = opts.dataMultiplier ?? '2'
+      if (tier !== '1' && tier !== '2' && tier !== '6') {
+        fail(EXIT.PARAMS, '--data-multiplier must be 1, 2, or 6')
+      }
       const task = await apiRequest<{ taskId: string; status: string; result?: unknown }>({
         method: 'POST',
         path: '/audience',
-        body: { url },
+        body: { url, dataMultiplier: Number(tier) },
       })
       if (opts.submitOnly) {
         emit(task)

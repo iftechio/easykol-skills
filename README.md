@@ -68,8 +68,9 @@ tag/keyword, and 30 for standard, beta or realtime tag/keyword. Use the live quo
 for the current request. The bundled transport preserves quote-based budgets, stable
 idempotency keys and request journals. Email templates, connected senders,
 follow-ups and results use `/external/v1/email`; sending requires authorization,
-and uncertain sends are never retried automatically. Authentication remains
-`ek-api-key` + `ek-api-email`.
+and uncertain sends are never retried automatically. The Skill also operates the
+EasyKOL web workflow for personalized bulk sends, batch progress, read/reply
+statistics, inbox and mailbox authorization. See the [email workflow guide](skills/easykol/references/email-web.md).
 
 The bundled script is generated from shared API source in `cli/src/`; its standalone
 entry excludes npm installation and upgrade commands. After changing that source:

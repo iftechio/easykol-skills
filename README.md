@@ -71,6 +71,7 @@ follow-ups and results use `/external/v1/email`; sending requires authorization,
 and uncertain sends are never retried automatically. The Skill also operates the
 EasyKOL web workflow for personalized bulk sends, batch progress, read/reply
 statistics, inbox and mailbox authorization. See the [email workflow guide](skills/easykol/references/email-web.md).
+API authentication uses `ek-api-key` and `ek-api-email`.
 
 The bundled script is generated from shared API source in `cli/src/`; its standalone
 entry excludes npm installation and upgrade commands. After changing that source:

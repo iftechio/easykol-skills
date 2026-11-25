@@ -60,6 +60,11 @@ reporting.
   scoped to the authorized mailbox. Use aggregate counts when the request asks
   for statistics. Count the visible unread indicators across the relevant pages
   if an unread total is unavailable. Keep inbox unread separate from send tracking.
+- To refresh a specific mailbox, select it in the inbox and use 同步邮件. The
+  更新已回复状态 action in Send Details starts a sync across the user’s mailboxes.
+  Use that broader action only when it matches the request. A submitted sync
+  runs in the background. Recheck the sync time or affected records before
+  reporting refreshed results.
 - For authorized resumption or schedule adjustments, find the specific plan in
   [邮件追踪 / Send Details](https://app.easykol.com/email/sendDetails) and check
   the affected scope before submitting. A bulk action can include both first

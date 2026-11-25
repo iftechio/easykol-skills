@@ -11,11 +11,16 @@ import { fileURLToPath } from 'node:url'
 test('creator workflows preserve explicit mutations, free task reads and bounded lookups', async (t) => {
   const folder = mkdtempSync(join(tmpdir(), 'easykol-workflows-'))
   const requests = []
+  let advertisesCart = false
   const server = createServer(async (req, res) => {
     let data = ''
     for await (const chunk of req) data += chunk
     requests.push([req.method, req.url, data ? JSON.parse(data) : null])
     res.setHeader('content-type', 'application/json')
+    if (req.url === '/external/v1/quota')
+      return res.end(JSON.stringify({ data: { capabilities: { similarVideoCart: advertisesCart } } }))
+    if (req.url === '/external/v1/similar/task-1')
+      return res.end(JSON.stringify({ data: { status: 'COMPLETED', result: [] } }))
     res.end(JSON.stringify({ data: { taskId: 'task-1', status: 'PROCESSING' } }))
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -40,6 +45,9 @@ test('creator workflows preserve explicit mutations, free task reads and bounded
   await run('fake-followers', '--url', url)
   await run('fake-followers-result', '--task-id', 'task-1')
   await run('tiktok-cart', '--url', url, '--limit', '20')
+  await assert.rejects(run('similar', '--url', url, '--has-video-cart'), { code: 6 })
+  advertisesCart = true
+  await run('similar', '--url', url, '--has-video-cart')
   assert.deepEqual(requests, [
     ['POST', '/external/v1/favorites/project-1/creators', { action: 'add', kolIds: ['c1', 'c2'] }],
     ['PUT', '/external/v1/favorites/project-1/share', { scope: 'workspace' }],
@@ -48,5 +56,9 @@ test('creator workflows preserve explicit mutations, free task reads and bounded
     ['POST', '/external/v1/fake-followers', { url }],
     ['GET', '/external/v1/fake-followers/task-1', null],
     ['POST', '/external/v1/creators/recent-posts', { url, limit: 20, cartOnly: true }],
+    ['GET', '/external/v1/quota', null],
+    ['GET', '/external/v1/quota', null],
+    ['POST', '/external/v1/similar', { seedProfileUrl: url, hasVideoCart: true, dedupDays: 3 }],
+    ['GET', '/external/v1/similar/task-1', null],
   ])
 })

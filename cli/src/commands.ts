@@ -89,6 +89,16 @@ const FILTER_OPTIONS: OptionDef[] = [
   { flags: '--avg-max <n>', description: 'max avg views (TT/YT) or avg likes (IG)' },
 ]
 
+type ApiCapabilities = {
+  audienceDataMultipliers?: number[]
+  similarVideoCart?: boolean
+}
+
+async function readApiCapabilities(): Promise<ApiCapabilities | undefined> {
+  const quota = await apiRequest<{ capabilities?: ApiCapabilities }>({ path: '/quota' })
+  return quota?.capabilities
+}
+
 // ---------- async task poller ----------
 
 async function pollTask(
@@ -185,6 +195,8 @@ export const API_COMMANDS: CommandDef[] = [
     ],
     async run(opts) {
       const seedProfileUrl = required<string>(opts.url, '--url')
+      if (opts.hasVideoCart && (await readApiCapabilities())?.similarVideoCart !== true)
+        fail(EXIT.PARAMS, 'The current API does not advertise product-anchor filtering for similar search. No paid search was submitted.')
       const body: Record<string, unknown> = {
         seedProfileUrl,
         hasVideoCart: opts.hasVideoCart ? true : undefined,
@@ -447,6 +459,11 @@ export const API_COMMANDS: CommandDef[] = [
       if (tier !== '1' && tier !== '2' && tier !== '6') {
         fail(EXIT.PARAMS, '--data-multiplier must be 1, 2, or 6')
       }
+      if (
+        tier !== '2' &&
+        !(await readApiCapabilities())?.audienceDataMultipliers?.includes(Number(tier))
+      )
+        fail(EXIT.PARAMS, `The current API does not advertise the ${tier}× audience tier. No report was submitted.`)
       const task = await apiRequest<{ taskId: string; status: string; result?: unknown }>({
         method: 'POST',
         path: '/audience',

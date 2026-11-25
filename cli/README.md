@@ -1,17 +1,15 @@
 # @easykol/cli
 
-EasyKOL 的命令行客户端，用自然语言在 YouTube、TikTok、Instagram 上发现 KOL / 创作者。
+EasyKOL 的独立命令行客户端。通过 Codex、Cursor 或 Claude Code 使用 Skill 时，可直接使用[自带脚本](../README.md#runtime-and-credentials)。GitHub Skill 和 npm 独立 CLI 分别发布。
 
 ## 前置条件
 
 - Node.js 18+
 - EasyKOL API Key（登录 [app.easykol.com/settings/quotaQuery](https://app.easykol.com/settings/quotaQuery) 生成）
 
-## 安装
+## 从源码使用当前版本
 
-```bash
-npm install -g @easykol/cli@latest
-```
+在本目录运行 `npm ci` 和 `npm run build`，然后使用 `node dist/index.js`。下文的 `easykol` 指本次构建的命令，也可用于已安装且支持相应命令的版本。通过 `easykol --version` 和 `easykol schema --all` 核对版本与功能。npm 版本可能滞后。
 
 ## 快速开始
 
@@ -20,9 +18,6 @@ npm install -g @easykol/cli@latest
 ```bash
 # 推荐：从环境变量读取，避免 Key 出现在 shell 历史
 printf '%s' "$EASYKOL_API_KEY" | easykol auth --key-stdin --email you@example.com
-
-# 或直接传入
-easykol auth --key ek_xxx --email you@example.com
 ```
 
 配置保存在 `~/.easykol/config.json`。
@@ -41,30 +36,27 @@ easykol quota
 
 ### 4. 搜索创作者
 
-直接搜索（推荐）。`search` 内部会自动完成 parse / 选词，无需先调 `parse`：
+通过 V2 执行搜索，提交前自动请求免费准备和报价：
 
 ```bash
-easykol search \
+easykol search-v2 \
+  --mode standard \
   --sentence "美妆护肤类 Instagram 博主，粉丝 10 万以上" \
   --platform INSTAGRAM \
   --regions US \
-  --min-subscribers 100000 \
-  --avg-min 0 \
-  --limit 20
+  --min-subscribers 100000
 ```
 
-可选：调试或需要预览标签时，可先 `parse`（免费）再 `search`：
-
-```bash
-easykol parse --sentence "美妆护肤类 Instagram 博主" --platform INSTAGRAM --regions US
-```
+需要预览或调整准备结果时，可先运行 `easykol parse-v2`。执行后保存任务 ID，用 `task --task-id <id>` 免费读取。需要更多结果时，按[续批规则](../skills/easykol/references/pro-pagination.md)继续。
 
 ## 配额说明
 
 | 操作 | 扣费规则 |
 |------|----------|
-| `search` 执行搜索 | 返回 N 个博主扣 **N 配额**，**0 结果不扣** |
-| `parse` 解析搜索意图 | **免费** |
+| `search-v2`、`search-next` | 按服务端批次报价预扣，读取结算确认净扣费。 |
+| `parse-v2`、`task` | **免费**，可读准备、历史分页或结算。 |
+| `search`（V1） | 返回 N 个博主扣 **N 原始配额**，0 结果不扣。 |
+| `parse`（V1） | **免费** |
 | `more-words` 扩展关键词 | **免费** |
 | `quota` 查询剩余配额 | **免费** |
 | `doctor` / `auth` / `schema` | **免费** |
@@ -78,13 +70,19 @@ easykol parse --sentence "美妆护肤类 Instagram 博主" --platform INSTAGRAM
 | `doctor` | 免费 | 检查 CLI 版本、配置和 API 连通性 |
 | `auth` | 免费 | 保存 API Key 和邮箱 |
 | `quota` | 免费 | 查看剩余配额 |
-| `parse` | 免费 | 预览搜索：标签 + 关键词 + 预估数量（调试用） |
+| `parse-v2` | 免费 | 准备 V2 搜索并查看报价 |
+| `search-v2` / `search-next` | 服务端报价 | 执行或续批 V2 搜索 |
+| `task` | 免费 | 查询任务或读取已保存结果 |
+| `search-export` | 免费 | 从已保存的搜索结果下载 Excel |
+| `parse`（V1） | 免费 | 预览同步搜索的标签和关键词 |
 | `more-words` | 免费 | 扩展更多关键词（排除已展示的） |
-| `search` | 返回数量 | 执行搜索，返回 N 个扣 N 配额，0 结果不扣 |
+| `search`（V1） | 返回数量 | 执行旧版同步搜索，N 个结果扣 N 原始配额 |
 | `schema [cmd]` | 免费 | 查看命令参数（用于 AI Agent 集成） |
 | `exit-codes` | 免费 | 查看所有退出码含义 |
 
-## 筛选参数
+## 旧版 V1 筛选参数
+
+V2 和结果导出的字段见[搜索及结果筛选](../skills/easykol/references/search-filters.md)。
 
 `parse` / `more-words` / `search` 均支持以下可选筛选：
 
@@ -124,7 +122,7 @@ easykol parse --sentence "美妆护肤类 Instagram 博主" --platform INSTAGRAM
 
 进程退出码：`0` 成功 · `1` 通用错误 · `2` 未认证 · `3` 配额不足 · `4` 无权限 · `5` 网络错误 · `6` 参数错误 · `7` 限流
 
-## 典型使用示例
+## V1 兼容示例
 
 ```bash
 # YouTube 科技评测，美国地区，50 万以上订阅
@@ -157,14 +155,14 @@ easykol search --sentence "skincare influencers" --platform INSTAGRAM \
 
 ```bash
 easykol schema --all      # 完整命令树
-easykol schema search     # 单个命令的参数
+easykol schema search-v2  # 单个命令的参数
 easykol exit-codes        # 退出码含义
 ```
 
-## Additional V2 search modes (CLI 0.2.1)
+## V2 搜索模式
 
 The original `search` and `parse` commands above retain their V1 contract.
-Use the new commands explicitly for fast, standard or beta asynchronous search:
+Use V2 for fast, standard, beta, explicit-tag or explicit-keyword search:
 
 ```bash
 easykol search-v2 --mode fast --platform TIKTOK --sentence "US gaming creators" --regions US
@@ -174,6 +172,9 @@ easykol search-v2 --mode beta --platform INSTAGRAM --sentence "Sports creators" 
 easykol parse-v2 --mode fast --platform TIKTOK --sentence "US gaming creators"
 easykol task --task-id TASK_ID --offset 0 --limit 100
 easykol search-next --task-id COMPLETED_TASK_ID
+easykol search-v2 --mode keyword --platform YOUTUBE --keywords 'road cycling,bike fit' --search-data-mode realtime
+easykol task --task-id WEB_TASK_ID --project-id PROJECT_ID --attitude NORATE
+easykol search-export --task-id WEB_TASK_ID --project-id PROJECT_ID --attitude LIKE --output ./favorites.xlsx
 ```
 
 V2 requires the deployed external V2 backend; default mode is fast. The CLI
@@ -183,7 +184,7 @@ and bills by quoted batches. Stored-page queries are free. See
 settlement rules. Missing V2 never silently submits a paid V1 request.
 
 V2 also exposes creator taxonomy, appearance, recent-activity and stored TikTok
-Shop filters. Run `easykol schema search-v2` for the current flag list. Explicit
+Shop filters. Each option requires a compatible deployment. Run `easykol schema search-v2` for the current flag list. Explicit
 `--keywords ''` disables only keyword recall; tag and semantic recall remain active.
 
 

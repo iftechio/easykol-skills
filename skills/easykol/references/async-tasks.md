@@ -43,9 +43,11 @@ user wants to come back later. Query with the account that started the task.
 ## `audience` Cache Behaviour
 
 `audience` can reuse a completed report from the past **30 days** at the same or a
-higher tier. A cache hit is free. A new analysis costs **1, 2, or 6 AI credits**
-depending on `--data-multiplier` (default 2). Requesting a higher tier can create
-a new paid analysis even if a lower-tier report exists.
+higher tier. A cache hit is free. On a compatible deployment a new analysis
+costs **1, 2, or 6 AI credits** depending on `--data-multiplier` (default 2).
+The helper checks release support for 1× or 6× using a free quota read before
+submitting a paid analysis. Requesting a higher tier can create a new paid
+analysis even if a lower-tier report exists.
 
 ## Telling the User
 

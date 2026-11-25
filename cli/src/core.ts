@@ -105,8 +105,7 @@ interface CallOptions {
   timeoutMs?: number
 }
 
-/** Low-level call — never throws, never exits on HTTP error (returns the result). */
-export async function apiCall(opts: CallOptions): Promise<RawResult> {
+async function apiFetch(opts: CallOptions): Promise<Response> {
   const cfg = loadConfig()
   if (!cfg.apiKey || !cfg.email) {
     fail(EXIT.UNAUTH, 'Not authenticated. Configure your API key and email first.', {
@@ -123,21 +122,34 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
     : ''
   const url = `${base}/external/v${opts.version ?? 1}${opts.path}${qs}`
 
+  return fetch(url, {
+    method: opts.method || 'GET',
+    headers: {
+      'ek-api-key': cfg.apiKey,
+      'ek-api-email': cfg.email,
+      'content-type': 'application/json',
+    },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    // Preserve V1's existing timeout behavior. Only V2 defaults to a request deadline.
+    ...(opts.timeoutMs !== undefined || opts.version === 2
+      ? { signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000) }
+      : {}),
+  })
+}
+
+function responseJson(text: string) {
+  try {
+    return text ? JSON.parse(text) : null
+  } catch {
+    return { message: text }
+  }
+}
+
+/** Low-level call — never exits on HTTP error (returns the result). */
+export async function apiCall(opts: CallOptions): Promise<RawResult> {
   let res: Response
   try {
-    res = await fetch(url, {
-      method: opts.method || 'GET',
-      headers: {
-        'ek-api-key': cfg.apiKey,
-        'ek-api-email': cfg.email,
-        'content-type': 'application/json',
-      },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      // Preserve V1's existing timeout behavior. Only V2 defaults to a request deadline.
-      ...(opts.timeoutMs !== undefined || opts.version === 2
-        ? { signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000) }
-        : {}),
-    })
+    res = await apiFetch(opts)
   } catch (e: any) {
     return { ok: false, status: 0, json: null, networkError: e?.message || String(e) }
   }
@@ -149,13 +161,28 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
     if (opts.version !== 2) throw e
     return { ok: false, status: 0, json: null, networkError: e?.message || String(e) }
   }
-  let json: any = null
+  return { ok: res.ok, status: res.status, json: responseJson(text) }
+}
+
+export async function apiXlsx(opts: CallOptions): Promise<Buffer> {
+  const base = process.env.EASYKOL_API_BASE || loadConfig().apiBase || DEFAULT_API_BASE
   try {
-    json = text ? JSON.parse(text) : null
-  } catch {
-    json = { message: text }
+    const res = await apiFetch(opts)
+    if (!res.ok) {
+      if (res.status === 404)
+        fail(EXIT.PARAMS, 'The search export endpoint or task is unavailable. Check the API deployment and task ownership.')
+      failHttp(base, { ok: false, status: res.status, json: responseJson(await res.text()) })
+    }
+    const contentType = res.headers.get('content-type')?.split(';', 1)[0]?.trim()
+    if (contentType !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      fail(EXIT.NETWORK, 'The search export did not return an Excel workbook.')
+    const bytes = Buffer.from(await res.arrayBuffer())
+    if (bytes.subarray(0, 4).toString('hex') !== '504b0304')
+      fail(EXIT.NETWORK, 'The search export returned an invalid Excel workbook.')
+    return bytes
+  } catch (error: any) {
+    fail(EXIT.NETWORK, `Search export download failed: ${error?.message || String(error)}`)
   }
-  return { ok: res.ok, status: res.status, json }
 }
 
 /** Map an HTTP failure to the right exit code + message, then exit. */

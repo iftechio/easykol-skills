@@ -1,10 +1,54 @@
 # EasyKOL External API Reference
 
-Base URL: `https://app.easykol.com/external/v1`
+The production API host is `https://app.easykol.com`. All examples require the
+account's API key and bound email. Paths without a version prefix below use
+`/external/v1`.
+
+## V2 intelligent search
+
+Use `POST /external/v2/intelligent-search/parse` to prepare a request and receive
+its quote for free. Submit the prepared `parameters` plus an `idempotencyKey`
+to `POST /external/v2/intelligent-search`. Save the returned task ID and key.
+
+- `searchMode` accepts `fast`, `standard`, `beta`, `tag` or `keyword` on a
+  compatible deployment. The platform is required. Fast, standard and beta
+  require `sentence`. Tag requires `canonicalTags` and keyword requires `keywords`.
+- For tag and keyword, `searchDataMode` is `historical` by default and can be
+  `realtime`. These modes use the supplied lists without AI rewriting.
+- The default `batchCount` is 1. Fast, standard, tag and keyword allow up to 10.
+  Beta allows up to 20 on compatible deployments. Earlier deployments may limit
+  beta to one batch or reject the new modes. Read `quote.targetResults` and
+  `quote.reserved` for the actual target and charge reservation.
+- Use `avgMin` / `avgMax` for TikTok/YouTube average views or Instagram average
+  likes. For Instagram, `viewMin` / `viewMax` are the separate views range.
+  Choose one Instagram range per request. `useMedianPlayCount` selects median
+  views for the views range. The helper's
+  [search filters](../skills/easykol/references/search-filters.md) list other
+  criteria, including language, activity (`lastPublishedDays` from 1 to 3650),
+  direct contacts and content filters.
+- Read `GET /external/v2/intelligent-search/{taskId}` for status, effective
+  filters, saved result pages and settlement. Reads are free. Follow `nextOffset`
+  to read more stored rows. To continue a completed task, `POST` to the same path
+  with `/next` appended and a new request's `idempotencyKey`. The task keeps its
+  source mode and filters. A continuation may explicitly change the batch count.
+  Use the original key for recovery from an uncertain submission.
+- Provide the original project ID and task ID for an owned website search. To
+  export Excel for free, read `GET /external/v2/intelligent-search/{taskId}/export`
+  or use the helper's `search-export --task-id <id> --output <path>`. Creator
+  emails are omitted unless requested with `--include-emails`. See the
+  [result and export flags](../skills/easykol/references/search-filters.md#result-and-export-filters).
+
+See [V2 search](../skills/easykol/references/search-modes.md) and
+[deployment errors](../skills/easykol/references/error-codes.md) for the task
+contract and how to handle an unsupported field or missing route.
+
+## V1 profile, video and tracking
 
 ### Video / post data
 
 `GET /video?url=<encoded-video-or-post-url>` returns a unified video object.
+The API charges 0.1 AI credits per 5 successful queries, or 1 AI credit per 50.
+The web app's video refresh and AI content analysis use their own rates.
 `shareCount` contains the platform's share count when available. For Instagram,
 this is the paper-plane share metric. `repostCount` contains Instagram's distinct
 double-arrow Repost metric when available. Both Instagram fields are sourced
@@ -299,7 +343,7 @@ Executes the KOL search and returns a list of matching creators.
 | languages | string[] | — | BCP-47 language codes |
 | maxSubscribers | number | — | Maximum follower count |
 | avgMax | number | — | Max avg views (TikTok/YouTube) or avg likes (Instagram) |
-| hasContactInfo | boolean | — | `true` = only return creators with a contact email |
+| hasContactInfo | boolean | — | `true` = only return creators with a stored contact record |
 | gender | string | — | `male` / `female` |
 | dedupDays | integer | — | Dedup window 0–30 days: exclude creators this API key returned in the past N days. `0` = no dedup. Default `3` |
 
@@ -342,7 +386,7 @@ Executes the KOL search and returns a list of matching creators.
 
 ---
 
-## Recommended Workflow
+## Legacy V1 synchronous search workflow
 
 ```
 1. GET  /quota                 check you have enough credits
@@ -377,12 +421,10 @@ If you pass `canonicalTags` or `keywords` directly, the automatic selection is s
 
 ## POST /web-search
 
-**Contract boundary:** this external API's `searchType=smart` is mode 4, not Smart
-Search Pro mode 7. Its 1–10 batch option below remains specific to this endpoint.
-Pro first/next requests are single-batch, at most 50 creators, through the separate
-authenticated `/api/search/v2/web-search` contract; see
-[Pro pagination](../skills/easykol/references/pro-pagination.md). The current CLI does
-not expose that task-continuation contract. Do not copy the multiplier into Pro.
+This legacy external API exposes `searchType=smart` as mode 4. Its batch range
+is specific to V1. For Smart Search Pro in the skill use
+[V2 beta](../skills/easykol/references/pro-pagination.md). To continue a task
+created in the web app, use its web result page.
 
 Async KOL search — one endpoint, three modes: `tag` (tag-direct), `keyword`, `smart` (one-sentence semantic). Returns a `taskId`; poll `GET /web-search/{taskId}` for results. Results are refreshed via RapidAPI (followers, last-published, etc.).
 
@@ -413,7 +455,7 @@ Async KOL search — one endpoint, three modes: `tag` (tag-direct), `keyword`, `
 | languages | string[] | — | BCP-47 language codes |
 | minSubscribers / maxSubscribers | number | — | Follower range |
 | avgMin / avgMax | number | — | Avg views (TikTok/YouTube) or avg likes (Instagram) |
-| hasContactInfo | boolean | — | Only creators with a contact email |
+| hasContactInfo | boolean | — | Only creators with a stored contact record |
 | gender | string | — | `male` / `female` |
 | lastPublishedDays | number | — | Only creators who posted within N days |
 | batchCount | integer | — | 1–10; more = more results & more cost. Default 1 |
@@ -471,7 +513,7 @@ Poll a KOL search task. When `status=COMPLETED`, returns `total` and `data`. Pol
 | Quota exhausted | 403 | 1403 | Top up at app.easykol.com |
 | Invalid parameter | 400 | 1450 | Check `sentence` and `platform` |
 | Rate limited | 429 | 1429 | Back off and retry |
-| Server error | 500 | — | Retry after a short delay |
+| Server error | 500 | — | Retry reads after a short delay. For writes, first check the existing task or outcome. |
 
 ---
 

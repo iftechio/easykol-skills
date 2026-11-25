@@ -1,10 +1,21 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import type { CommandDef, OptionDef } from './commands'
 import {
   apiCall,
   apiRequest,
+  apiXlsx,
   CONFIG_DIR,
   DEFAULT_API_BASE,
   emit,
@@ -27,6 +38,7 @@ interface Journal {
   body: any
   quotedQuota: number
   taskId?: string
+  projectId?: string
 }
 function scope() {
   const cfg = loadConfig()
@@ -79,8 +91,20 @@ export function searchInput(opts: any) {
   if ((opts.audience || opts.idealInfluencer) && !opts.product)
     fail(EXIT.PARAMS, '--audience and --ideal-influencer require --product')
   const searchMode = opts.mode ?? 'fast'
-  if (!['fast', 'standard', 'beta'].includes(searchMode))
-    fail(EXIT.PARAMS, '--mode must be fast|standard|beta')
+  if (!['fast', 'standard', 'beta', 'tag', 'keyword'].includes(searchMode))
+    fail(EXIT.PARAMS, '--mode must be fast|standard|beta|tag|keyword')
+  const direct = searchMode === 'tag' || searchMode === 'keyword'
+  const canonicalTags = list(opts.tags)
+  const keywords = list(opts.keywords)
+  if (searchMode === 'tag' && !canonicalTags?.length)
+    fail(EXIT.PARAMS, '--mode tag requires at least one --tags value')
+  if (searchMode === 'keyword' && !keywords?.length)
+    fail(EXIT.PARAMS, '--mode keyword requires at least one --keywords value')
+  if (
+    opts.searchDataMode !== undefined &&
+    (!direct || !['historical', 'realtime'].includes(opts.searchDataMode))
+  )
+    fail(EXIT.PARAMS, '--search-data-mode historical|realtime is available for tag and keyword')
   const platform = String(required(opts.platform, '--platform')).toUpperCase()
   if (!['TIKTOK', 'YOUTUBE', 'INSTAGRAM'].includes(platform))
     fail(EXIT.PARAMS, '--platform must be TIKTOK|YOUTUBE|INSTAGRAM')
@@ -90,24 +114,38 @@ export function searchInput(opts: any) {
     fail(EXIT.PARAMS, '--has-tk-shop requires --platform TIKTOK')
   if (opts.gender && !['male', 'female'].includes(opts.gender))
     fail(EXIT.PARAMS, '--gender must be male|female')
+  const instagramViewRange = opts.viewMin !== undefined || opts.viewMax !== undefined
+  const avgRange = opts.avgMin !== undefined || opts.avgMax !== undefined
+  if (platform !== 'INSTAGRAM' && (instagramViewRange || opts.onlyVideoCreators || opts.isAmzPartner))
+    fail(
+      EXIT.PARAMS,
+      'Playback range, video creators and Amazon affiliates require --platform INSTAGRAM',
+    )
+  if (platform === 'INSTAGRAM' && avgRange && (instagramViewRange || opts.useMedianPlayCount))
+    fail(EXIT.PARAMS, 'Choose Instagram video views or average likes for the range')
+  if (opts.matchPrecisionMode && !['strict', 'balanced', 'fuzzy'].includes(opts.matchPrecisionMode))
+    fail(EXIT.PARAMS, '--match-precision-mode must be strict|balanced|fuzzy')
+  if (opts.locale && !['zh', 'en'].includes(opts.locale))
+    fail(EXIT.PARAMS, '--locale must be zh|en')
+  if (opts.tone !== undefined && opts.tones !== undefined)
+    fail(EXIT.PARAMS, 'Use --tone or --tones')
   const batchCount = number(opts.batches, '--batches', 1)!
-  if (
-    !Number.isInteger(batchCount) ||
-    batchCount < 1 ||
-    batchCount > (searchMode === 'beta' ? 1 : 10)
-  )
-    fail(EXIT.PARAMS, 'Use 1–10 batches; beta requires one batch and serial search-next')
+  const maxBatches = searchMode === 'beta' ? 20 : 10
+  if (!Number.isInteger(batchCount) || batchCount < 1 || batchCount > maxBatches)
+    fail(EXIT.PARAMS, `--batches must be an integer from 1 to ${maxBatches} for ${searchMode}`)
   const lastPublishedDays = number(opts.lastPublishedDays, '--last-published-days')
   if (
     lastPublishedDays !== undefined &&
-    (!Number.isInteger(lastPublishedDays) || lastPublishedDays < 1 || lastPublishedDays > 365)
+    (!Number.isInteger(lastPublishedDays) || lastPublishedDays < 1 || lastPublishedDays > 3650)
   )
-    fail(EXIT.PARAMS, '--last-published-days must be an integer from 1 to 365')
+    fail(EXIT.PARAMS, '--last-published-days must be an integer from 1 to 3650')
   return JSON.parse(
     JSON.stringify({
       searchMode,
+      searchDataMode: opts.searchDataMode,
       platform,
-      sentence: required(opts.sentence, '--sentence'),
+      sentence: direct ? opts.sentence : required(opts.sentence, '--sentence'),
+      locale: opts.locale,
       batchCount,
       regions: list(opts.regions),
       languages: list(opts.languages),
@@ -115,18 +153,29 @@ export function searchInput(opts: any) {
       maxSubscribers: number(opts.maxSubscribers, '--max-subscribers'),
       avgMin: number(opts.avgMin, '--avg-min'),
       avgMax: number(opts.avgMax, '--avg-max'),
-      canonicalTags: list(opts.tags),
-      keywords: list(opts.keywords),
+      viewMin: number(opts.viewMin, '--view-min'),
+      viewMax: number(opts.viewMax, '--view-max'),
+      useMedianPlayCount: opts.useMedianPlayCount,
+      onlyVideoCreators: opts.onlyVideoCreators,
+      canonicalTags,
+      keywords,
       mustExclude: list(opts.exclude),
+      expandedQuery: opts.expandedQuery,
+      focusKeyword: opts.focusKeyword,
+      matchPrecisionMode: opts.matchPrecisionMode,
+      bioOnly: opts.bioOnly,
       hasContactInfo: opts.hasContact ? true : undefined,
+      hasDirectContact: opts.hasDirectContact,
       hasTkShop: opts.hasTkShop ? true : undefined,
       hasVideoCart: opts.hasVideoCart ? true : undefined,
+      isAmzPartner: opts.isAmzPartner,
       gender: opts.gender,
       skinColor: list(opts.skinColors),
       ageRange: opts.ageRange,
       mainCategory: opts.mainCategory,
       subCategory: opts.subCategory,
-      tone: opts.tone,
+      tone: list(opts.tones) ?? opts.tone,
+      toneExclude: list(opts.toneExclude),
       faceOnCamera: opts.faceOnCamera ? true : undefined,
       formatTags: list(opts.formatTags),
       sceneTags: list(opts.sceneTags),
@@ -145,7 +194,11 @@ export function searchInput(opts: any) {
 const inputOptions: OptionDef[] = [
   {
     flags: '--mode <mode>',
-    description: 'fast (default) | standard | beta; never silently substituted',
+    description: 'fast (default) | standard | beta | tag | keyword',
+  },
+  {
+    flags: '--search-data-mode <mode>',
+    description: 'historical (default) | realtime for tag and keyword searches',
   },
   {
     flags: '--platform <p>',
@@ -153,11 +206,12 @@ const inputOptions: OptionDef[] = [
   },
   {
     flags: '--sentence <text>',
-    description: 'creator search requirement (required for a new search)',
+    description: 'creator search requirement (required for fast, standard and beta)',
   },
+  { flags: '--locale <locale>', description: 'search explanation language: zh | en' },
   {
     flags: '--batches <n>',
-    description: '1–10 (default 1); beta permits one batch per serial request',
+    description: '1–10, or 1–20 for beta (default 1)',
   },
   {
     flags: '--regions <list>',
@@ -177,15 +231,25 @@ const inputOptions: OptionDef[] = [
     flags: '--avg-max <n>',
     description: 'maximum average views (TT/YT) or likes (IG)',
   },
+  { flags: '--view-min <n>', description: 'minimum video views (Instagram only)' },
+  { flags: '--view-max <n>', description: 'maximum video views (Instagram only)' },
+  { flags: '--use-median-play-count', description: 'use median views for the view range' },
+  { flags: '--only-video-creators', description: 'require Instagram video creators' },
   { flags: '--tags <list>', description: 'explicit canonical tags' },
   { flags: '--keywords <list>', description: 'explicit keywords' },
   { flags: '--exclude <list>', description: 'excluded topics' },
+  { flags: '--expanded-query <text>', description: 'edited search phrasing or selected product directions' },
+  { flags: '--focus-keyword <text>', description: 'focus keyword' },
+  { flags: '--match-precision-mode <mode>', description: 'strict | balanced | fuzzy matching' },
+  { flags: '--bio-only', description: 'match keywords in the creator bio only' },
   { flags: '--has-contact', description: 'require a contact record' },
+  { flags: '--has-direct-contact', description: 'require a direct contact, such as email or phone' },
   {
     flags: '--has-tk-shop',
     description: 'require stored TikTok Shop presence (TIKTOK only)',
   },
   { flags: '--has-video-cart', description: 'require stored TikTok post-level product anchor evidence' },
+  { flags: '--is-amz-partner', description: 'require Amazon affiliate evidence (Instagram only)' },
   { flags: '--gender <g>', description: 'creator gender male | female' },
   {
     flags: '--skin-colors <list>',
@@ -195,12 +259,14 @@ const inputOptions: OptionDef[] = [
   { flags: '--main-category <key>', description: 'content main-category code key' },
   { flags: '--sub-category <key>', description: 'content sub-category code key' },
   { flags: '--tone <key>', description: 'content-tone code key' },
+  { flags: '--tones <list>', description: 'include any of these content-tone code keys' },
+  { flags: '--tone-exclude <list>', description: 'exclude these content-tone code keys' },
   { flags: '--face-on-camera', description: 'require a creator who appears on camera' },
   { flags: '--format-tags <list>', description: 'video-format code keys, comma separated' },
   { flags: '--scene-tags <list>', description: 'scene code keys, comma separated' },
   {
     flags: '--last-published-days <n>',
-    description: 'require a post in the last 1–365 days',
+    description: 'require a post in the last 1–3650 days',
   },
   { flags: '--visual', description: 'enable visual screening (beta only)' },
   { flags: '--product <text>', description: 'product description (beta only)' },
@@ -232,16 +298,67 @@ const paidOptions: OptionDef[] = [
   },
   ...waitOptions,
 ]
+const projectOption = {
+  flags: '--project-id <id>',
+  description: 'own project ID required for tasks created in the web app',
+}
+const resultOptions: OptionDef[] = [
+  projectOption,
+  { flags: '--attitude <value>', description: 'LIKE | SUPERLIKE | DISLIKE | NORATE' },
+  { flags: '--include-similar-favorites', description: 'include favorite creators from similar searches' },
+  { flags: '--has-email', description: 'apply the website contact availability filter' },
+  { flags: '--updated-within-60-days', description: 'only creators who posted in the last 60 days' },
+  { flags: '--has-tk-shop', description: 'only creators with TikTok Shop' },
+  { flags: '--is-amz-partner', description: 'only Amazon affiliates' },
+]
+
+function resultFilters(opts: Record<string, any>) {
+  if (opts.attitude && !['LIKE', 'SUPERLIKE', 'DISLIKE', 'NORATE'].includes(opts.attitude))
+    fail(EXIT.PARAMS, '--attitude must be LIKE|SUPERLIKE|DISLIKE|NORATE')
+  return {
+    projectId: opts.projectId,
+    attitude: opts.attitude,
+    includeSimilarFavorites: opts.includeSimilarFavorites,
+    hasEmail: opts.hasEmail,
+    updatedWithin60Days: opts.updatedWithin60Days,
+    hasTkShop: opts.hasTkShop,
+    isAmzPartner: opts.isAmzPartner,
+  }
+}
 function reconcile(entry: Journal, task: any) {
   if (task.settlement && !task.settlement.pending)
     reconcileSearchTaskBudget(entry.identity, task.settlement.net * 10)
 }
 export async function readSearchTask(taskId: string, opts: any = {}) {
-  return apiRequest<any>({
+  const { projectId, ...filters } = resultFilters(opts)
+  const task = await apiRequest<any>({
     version: 2,
     path: `${path}/${encodeURIComponent(taskId)}`,
-    query: { offset: opts.offset, limit: opts.limit },
+    query: { projectId, offset: opts.offset, limit: opts.limit, ...filters },
   })
+  if (projectId !== undefined && task?.effectiveParameters?.projectId !== projectId)
+    fail(EXIT.PARAMS, 'The search API did not confirm the requested project scope.')
+  const missingFilter = Object.entries(filters).some(
+    ([field, value]) => value !== undefined && task?.resultFilters?.[field] !== value,
+  )
+  if (missingFilter)
+    fail(EXIT.PARAMS, 'The search API did not confirm the requested result filters.')
+  return task
+}
+async function prepareSearch(input: Record<string, unknown>) {
+  const parsed = await apiRequest<{ parameters: Record<string, unknown>; quote: unknown }>({
+    version: 2,
+    method: 'POST',
+    path: `${path}/parse`,
+    timeoutMs: 210_000,
+    body: input,
+  })
+  const changed = Object.entries(input)
+    .filter(([field, value]) => !isDeepStrictEqual(parsed?.parameters?.[field], value))
+    .map(([field]) => field)
+  if (changed.length)
+    fail(EXIT.PARAMS, `The search API did not preserve these inputs: ${changed.join(', ')}. No paid search was submitted.`)
+  return parsed
 }
 async function deliver(entry: Journal, initial: any, opts: any) {
   let task = initial
@@ -259,11 +376,12 @@ async function deliver(entry: Journal, initial: any, opts: any) {
     const r = await apiCall({
       version: 2,
       path: `${path}/${encodeURIComponent(task.taskId)}`,
+      query: { projectId: entry.projectId },
     })
     if (!r.ok)
       fail(
         EXIT.NETWORK,
-        `Polling interrupted; taskId=${task.taskId}, idempotencyKey=${entry.key}. Resume with easykol task --task-id ${task.taskId}`,
+        `Polling interrupted; taskId=${task.taskId}, idempotencyKey=${entry.key}${entry.projectId ? `, projectId=${entry.projectId}` : ''}. Read the existing task to resume.`,
       )
     task = r.json?.data ?? r.json
   }
@@ -274,7 +392,7 @@ async function deliver(entry: Journal, initial: any, opts: any) {
     ...(opts.wait !== false && !task.resultsReady && !['COMPLETED', 'FAILED'].includes(task.status)
       ? {
           pollingTimedOut: true,
-          resume: `easykol task --task-id ${task.taskId}`,
+          resume: `task --task-id ${task.taskId}${entry.projectId ? ` --project-id ${entry.projectId}` : ''}`,
         }
       : {}),
   })
@@ -322,40 +440,29 @@ export const SEARCH_COMMANDS: CommandDef[] = [
     billing: 'free',
     options: inputOptions,
     async run(opts) {
-      emit(
-        await apiRequest({
-          version: 2,
-          method: 'POST',
-          path: `${path}/parse`,
-          timeoutMs: 210_000,
-          body: searchInput(opts),
-        }),
-      )
+      emit(await prepareSearch(searchInput(opts)))
     },
   },
   {
     name: 'search-v2',
-    summary: 'Create a fast/standard/beta search task (default fast)',
+    summary: 'Create a fast, standard, beta, tag or keyword task (default fast)',
     billing: 'server quote per batch; zero delivered results refunded after settlement',
     options: [...inputOptions, ...paidOptions],
     async run(opts) {
       const idempotencyKey = key(opts)
       let entry = load(idempotencyKey)
+      const suppliedSearchInput = Object.keys(opts).some(
+        (option) => !['idempotencyKey', 'confirmSpend', 'wait', 'timeout'].includes(option),
+      )
       if (
         entry &&
-        opts.sentence &&
-        JSON.stringify(searchInput(opts)) !== JSON.stringify(entry.input)
+        suppliedSearchInput &&
+        !isDeepStrictEqual(searchInput(opts), entry.input)
       )
         fail(EXIT.PARAMS, 'This idempotency key belongs to different search parameters')
       if (!entry) {
         const input = searchInput(opts)
-        const parsed = await apiRequest<any>({
-          version: 2,
-          method: 'POST',
-          path: `${path}/parse`,
-          timeoutMs: 210_000,
-          body: input,
-        })
+        const parsed = await prepareSearch(input)
         entry = {
           identity: identity(idempotencyKey),
           key: idempotencyKey,
@@ -372,7 +479,7 @@ export const SEARCH_COMMANDS: CommandDef[] = [
   },
   {
     name: 'task',
-    summary: 'Read an existing v2 search task and stored result page',
+    summary: 'Read an existing search task and filter its stored results',
     billing: 'free',
     options: [
       { flags: '--task-id <id>', description: 'task ID (required)' },
@@ -381,6 +488,7 @@ export const SEARCH_COMMANDS: CommandDef[] = [
         flags: '--limit <n>',
         description: 'stored page size 1–100 (default 50); does not create a new batch',
       },
+      ...resultOptions,
     ],
     async run(opts) {
       const taskId = required<string>(opts.taskId, '--task-id')
@@ -396,14 +504,48 @@ export const SEARCH_COMMANDS: CommandDef[] = [
     },
   },
   {
+    name: 'search-export',
+    summary: 'Download a completed search task as filtered Excel',
+    billing: 'free',
+    options: [
+      { flags: '--task-id <id>', description: 'search task ID (required)' },
+      { flags: '--output <path>', description: 'new local .xlsx file (required)' },
+      { flags: '--include-emails', description: 'include creator email in the workbook (default off)' },
+      ...resultOptions,
+    ],
+    async run(opts) {
+      const taskId = required<string>(opts.taskId, '--task-id')
+      const output = resolve(required<string>(opts.output, '--output'))
+      if (!output.toLowerCase().endsWith('.xlsx'))
+        fail(EXIT.PARAMS, '--output must be an .xlsx file')
+      if (existsSync(output)) fail(EXIT.PARAMS, 'The output file already exists')
+      const bytes = await apiXlsx({
+        version: 2,
+        path: `${path}/${encodeURIComponent(taskId)}/export`,
+        query: { ...resultFilters(opts), includeEmails: opts.includeEmails },
+      })
+      const tempDir = mkdtempSync(join(dirname(output), '.easykol-export-'))
+      try {
+        const temp = join(tempDir, 'export.xlsx')
+        writeFileSync(temp, bytes, { mode: 0o600 })
+        linkSync(temp, output)
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true })
+      }
+      emit({ taskId, output, bytes: bytes.length })
+    },
+  },
+  {
     name: 'search-next',
     summary: 'Continue the exact completed source task, serially',
-    billing: 'inherits the source task quote; one continuation per source',
+    billing: 'source per-batch rate; one continuation per source',
     options: [
       {
         flags: '--task-id <id>',
         description: 'completed source task (required; mode/filters are inherited)',
       },
+      projectOption,
+      { flags: '--batches <n>', description: 'optional batch count; defaults to the source task count' },
       ...paidOptions,
     ],
     async run(opts) {
@@ -411,21 +553,44 @@ export const SEARCH_COMMANDS: CommandDef[] = [
       const idempotencyKey = key(opts)
       const target = `${path}/${encodeURIComponent(taskId)}/next`
       let entry = load(idempotencyKey)
-      if (entry && entry.path !== target)
-        fail(EXIT.PARAMS, 'This idempotency key belongs to a different task')
+      const batchCount = number(opts.batches, '--batches')
+      if (
+        batchCount !== undefined &&
+        (!Number.isInteger(batchCount) || batchCount < 1 || batchCount > 20)
+      )
+        fail(EXIT.PARAMS, '--batches must be an integer from 1 to 20')
+      if (
+        entry &&
+        (entry.path !== target ||
+          (opts.projectId !== undefined && opts.projectId !== entry.projectId) ||
+          (batchCount !== undefined && batchCount !== entry.body.batchCount))
+      )
+        fail(EXIT.PARAMS, 'This idempotency key belongs to a different continuation')
       if (!entry) {
-        const source = await readSearchTask(taskId)
+        const source = await readSearchTask(taskId, { projectId: opts.projectId })
         if (source.status !== 'COMPLETED')
           fail(EXIT.PARAMS, `Source is ${source.status}; wait for COMPLETED before continuing`)
+        if (batchCount !== undefined && batchCount > (source.searchMode === 'beta' ? 20 : 10))
+          fail(EXIT.PARAMS, '--batches above 10 requires a beta source')
+        const sourceQuota = quotedQuota(source.quote)
+        const nextQuota = batchCount === undefined
+          ? sourceQuota
+          : (sourceQuota / Number(source.quote.batchCount)) * batchCount
+        if (!Number.isSafeInteger(nextQuota) || nextQuota <= 0)
+          fail(EXIT.NETWORK, 'The source task did not return a valid per-batch quote')
         entry = {
           identity: identity(idempotencyKey),
           key: idempotencyKey,
           path: target,
-          body: { idempotencyKey },
-          quotedQuota: quotedQuota(source.quote),
+          projectId: opts.projectId,
+          body: { idempotencyKey, projectId: opts.projectId, batchCount },
+          quotedQuota: nextQuota,
         }
       }
-      if (entry.taskId) return deliver(entry, await readSearchTask(entry.taskId), opts)
+      if (entry.taskId) {
+        const existing = await readSearchTask(entry.taskId, { projectId: entry.projectId })
+        return deliver(entry, existing, opts)
+      }
       await submit(entry, opts)
     },
   },

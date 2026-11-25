@@ -6,7 +6,8 @@ Platform values passed to API helper: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per 
 
 | Command | YouTube | TikTok | Instagram |
 |---------|:-------:|:------:|:---------:|
-| `search` | ✅ | ✅ | ✅ |
+| `search-v2` / `parse-v2` | ✅ | ✅ | ✅ |
+| `search` (legacy) | ✅ | ✅ | ✅ |
 | `parse` | ✅ | ✅ | ✅ |
 | `more-words` | ✅ | ✅ | ✅ |
 | `kol` | ✅ | ✅ | ✅ |
@@ -29,8 +30,9 @@ Platform values passed to API helper: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per 
 | `language` | ✅ | ✅ | ✅ |
 | `email` | may be empty string | may be empty string | may be empty string |
 
-> YouTube creators do not have a `region` field — always `null`. Use `language` for
-> language targeting instead.
+> The table describes these legacy command responses. V2 search returns the
+> saved YouTube country when available. Treat missing country and creator language
+> separately.
 
 ### `audience` result fields
 
@@ -51,9 +53,9 @@ Platform values passed to API helper: `YOUTUBE`, `TIKTOK`, `INSTAGRAM` (one per 
 - There is no TikTok Shop fulfilment-rate field or filter in the API helper/API.
 - `hasContactInfo` means EasyKOL has a contact record. It is not a guarantee that the
   email is public, current, deliverable, or non-empty in every returned row.
-- Search returns the current response only, with a maximum `limit` of 50. A parse
-  `estimatedTotal` is an estimate and must not be described as a complete candidate
-  pool.
+- V2 creates quoted batches. Use `task --limit` for stored result pages. The
+  legacy V1 `search` command returns a single page of at most 50. Treat any
+  `estimatedTotal` as an estimate.
 
 ### `video` supported URL types
 

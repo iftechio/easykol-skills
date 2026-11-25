@@ -6,6 +6,9 @@ means unavailable endpoint or inaccessible template; distinguish only when verif
 Use the configured API key and email. For web-only actions or a verified API
 availability issue, use the [email web workflow](email-web.md) under the intended
 account. Keep credentials out of prompts, logs and output.
+Apply the [email action scope](../SKILL.md#easykol-email-outreach) to both API
+and web operations. Pass a confirmation flag only for the user-authorized
+action after verifying its scope.
 
 ## Templates
 
@@ -20,8 +23,10 @@ account. Keep credentials out of prompts, logs and output.
   subject, content, cc, bcc, sortOrder; create also accepts shared (administrator).
   Only the creator can update a follow-up template.
 - Supported variable: `{{nickname}}`. Preserve variables when rewriting.
-  Saving does not send email. Do not duplicate templates to bypass count limits.
-  Template deletion is not exposed.
+  Pending batch plans load the saved template at delivery. Before updating
+  an existing template via API, check its queued use in the web send plans.
+  Save changes only within the scope the user authorized and respect template
+  count limits.
 
 Example update: `{"subject":"A collaboration idea for {{nickname}}","content":"Hi {{nickname}}, ..."}`.
 Draft or rewrite locally, then save within the user's authorized scope.
@@ -52,12 +57,13 @@ and reauthorization still use the web flow; do not claim API binding is supporte
 `email-sender-nickname --id --body-file` accepts `{"nickname":"Name"}`.
 `email-sender-limit --id --body-file` accepts `{"autoEmailDailyLimit":50}`;
 0 disables automatic sending on that mailbox, and the web maximum still applies.
-The limit must be an integer and concerns automatic emails, not a new cap on manual sends.
+The limit must be an integer and applies to automatic emails. Change mailbox
+settings only when the user requests that setting change.
 
-Before `email-send --body-file ... --confirm-send`, show the actual recipient,
-sender, subject, content, cc/bcc from the template and automatic follow-up sequence.
-Authorization must cover actual delivery. Permission to draft or save is not
-permission to send. Fields: email, usingEmail, templateId or followUpTemplateId,
+Before `email-send --body-file ... --confirm-send`, verify the actual recipient,
+sender, subject, content, CC/BCC and automatic follow-up sequence. Use the
+verified addresses in `email` and `usingEmail` so delivery uses the addresses
+the user authorized. Fields also include templateId or followUpTemplateId,
 kolId, projectId, subject, content, replyToEmailRecordId. Custom subject+content
 can replace template selection. Supplying a project and creator can also mark that
 creator as liked, matching web sending; include this effect in the review.

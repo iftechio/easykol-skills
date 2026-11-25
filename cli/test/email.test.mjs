@@ -118,6 +118,16 @@ test("actual send requires explicit flag and makes no request when absent", asyn
   const h = await harness(t);
   const r = await h.run(["email-send", "--body-file", h.bodyPath]);
   assert.equal(r.code, 6);
+  const prefilled = await h.run(
+    ["email-send", "--body-file", "-"],
+    JSON.stringify({
+      email: "recipient@example.com",
+      subject: "Hello",
+      content: "Hi",
+      confirmSend: true,
+    }),
+  );
+  assert.equal(prefilled.code, 6);
   assert.equal(h.requests.length, 0);
 });
 test("send confirms one delivery and returns its result", async (t) => {
@@ -150,6 +160,11 @@ test("scheduled change flag is required and allows an authorized clear", async (
   const h = await harness(t);
   const args = ["email-followups-set", "--id", "template", "--body-file", "-"];
   assert.equal((await h.run(args, '{"followupEmails":[]}')).code, 6);
+  assert.equal(
+    (await h.run(args, '{"followupEmails":[],"confirmScheduledChanges":true}'))
+      .code,
+    6,
+  );
   assert.equal(h.requests.length, 0);
   assert.equal(
     (

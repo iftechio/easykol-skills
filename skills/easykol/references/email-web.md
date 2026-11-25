@@ -8,6 +8,26 @@ different handling from an empty result. Let the user complete OAuth or other
 browser-owned authorization when required. Keep mailbox credentials, message
 content and recipient details private.
 
+Apply the [email action scope](../SKILL.md#easykol-email-outreach) before using
+web controls. In particular, these actions have live effects:
+
+- **发送测试邮件 / Send a test email** and the send button in the template's
+  personalized-opening preview save the template before sending to the signed-in
+  account's email address. The regular test also sends copies of configured
+  follow-ups immediately to that address. Use the on-screen **预览 / Preview**
+  view or a local draft for review. Run a test only when the user authorizes
+  the template save and the actual sender, test destination and messages.
+  Stop at preview when the available test would save an unapproved change
+  or send extra messages.
+- **确认 / Confirm** in the final batch send dialog creates plans immediately.
+  With immediate delivery selected, sending can start as soon as they are
+  queued. Open the dialog to check settings, then stop before confirmation
+  until the verified send scope is authorized.
+- The batch page's daily-limit control saves when changed. Selecting a regular
+  sender in the template editor sets that mailbox as the account default.
+  Select the sender in the final batch dialog for a one-time batch choice.
+  If a prerequisite is missing, report it before changing account settings.
+
 ## Personalized bulk sending
 
 Use [批量发送 / Batch Send](https://app.easykol.com/email/batchSend) or the batch
@@ -20,6 +40,8 @@ reporting.
    Where available, use the project's batch action to keep creator and project
    associations. Check the import preview for usable addresses and correct
    names. Merge duplicate addresses, check prior outreach and honor opt-outs.
+   Check actual addresses against the requested selection, especially when a
+   project action can import a wider range.
 2. Choose the personal or enterprise template. Use [邮件模板 / Email
    Templates](https://app.easykol.com/email/template) to create or edit it or use
    the [API workflow](email.md#templates). Preview the rendered subject, body,
@@ -36,9 +58,12 @@ reporting.
    sends that use it. For a change limited to a new batch, use a different
    authorized template.
 3. Check the final send dialog for recipient count, template, sender mode, actual
-   sender addresses, scheduling and spacing, and attached automated follow-ups.
+   sender addresses, scheduling and spacing. Recheck the saved template content,
+   CC/BCC and follow-up sequence against what the user approved.
    The scheduling dialog takes whole hours relative to submission. Verify its
    estimated start and timezone against the requested time before proceeding.
+   Stop at preview if the requested timing cannot be represented or if the
+   template has an unapproved follow-up sequence.
    When a sender was named, select single-mailbox mode and verify its address.
    Rotation draws from the account's eligible mailbox pool. Use it only if the
    entire pool is authorized. Split by sender when the request assigns different
@@ -56,8 +81,10 @@ reporting.
 ## Follow-ups and conversation handling
 
 - Use [邮件模板](https://app.easykol.com/email/template) to view or configure an
-  initial template's automatic sequence. Verify text, days and the original
-  sender. Saving can modify pending steps and add steps to existing conversations,
+  initial template's automatic sequence. Use the API read when available.
+  The web follow-up editor saves text and delay changes automatically. Verify
+  authorization for the text, days and sender before opening a step for editing.
+  Saving can modify pending steps and add steps to existing conversations,
   including teammates' schedules for a shared template. Confirm the affected
   scope before saving. EasyKOL uses synced reply status and creates follow-up
   plans after a successful first send when it can link the original conversation.
@@ -66,22 +93,22 @@ reporting.
 - Use [跟进模板 / Follow-up Templates](https://app.easykol.com/email/follow-up-templates)
   for reusable stage-specific copy. Use [邮件跟进 / Follow-up Workbench](https://app.easykol.com/email/follow-up)
   for project-scoped conversations, stages, notes and manual or batch follow-up.
-  Review thread history and reply to the existing conversation where possible.
-  A reusable follow-up template alone does not schedule delivery.
+  Review thread history and preserve the thread for an authorized reply. A
+  request for follow-up copy ends at draft or template save, as requested.
 - Check [收件箱 / Inbox](https://app.easykol.com/email/inbox) for incoming messages
   scoped to the authorized mailbox. Use aggregate counts when the request asks
   for statistics. Count the visible unread indicators across the relevant pages
   if an unread total is unavailable. Keep inbox unread separate from send tracking.
-- To refresh a specific mailbox, select it in the inbox and use 同步邮件. The
-  更新已回复状态 action in Send Details starts a sync across the user’s mailboxes.
-  Use that broader action only when it matches the request. A submitted sync
-  runs in the background. Recheck the sync time or affected records before
-  reporting refreshed results.
+- When the user requests a fresh sync for a specific mailbox, select it in the
+  inbox and use 同步邮件. The 更新已回复状态 action in Send Details starts a sync
+  across the user’s mailboxes. Use it only for an authorized account-wide
+  sync. A submitted sync runs in the background. Recheck the sync time or
+  affected records before reporting refreshed results.
 - For authorized plan actions, verify the selected rows in
   [邮件追踪 / Send Details](https://app.easykol.com/email/sendDetails). The global
-  resume action can include paused first emails and follow-ups across eligible
+  resume and cancel controls can affect first emails and follow-ups across
   mailboxes. The global delay action changes spacing for pending and paused
-  batch emails across the account.
+  batch emails across the account. A resend starts another delivery attempt.
   Use global controls only when the requested scope covers all affected plans.
 
 ## Records, replies and reporting
@@ -89,7 +116,8 @@ reporting.
 - Use [邮件追踪 / Send Details](https://app.easykol.com/email/sendDetails) for
   sent-mail read/reply filters, date range, sender, template, send status/type,
   and CSV export in the personal view. Include unsent plans when checking the
-  queue. Check that every record you summarize matches the requested scope.
+  queue. For sent-mail reports, check actual send timestamps and count each
+  in-scope message once.
   The export reads at most 50,000 top-level records and adds separate rows for
   their follow-ups. The page total counts top-level records. Verify the download,
   report any coverage limit and check follow-up rows before counting them toward

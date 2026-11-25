@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { SEARCH_COMMANDS } from './search'
 import { EMAIL_COMMANDS } from './email'
+import { CREATOR_WORKFLOW_COMMANDS } from './creator-workflows'
 import {
   apiCall,
   apiRequest,
@@ -178,6 +179,7 @@ export const API_COMMANDS: CommandDef[] = [
       { flags: '--max-avg-views <n>', description: 'max avg views (TT/YT)' },
       { flags: '--min-avg-likes <n>', description: 'min avg likes (IG only)' },
       { flags: '--max-avg-likes <n>', description: 'max avg likes (IG only)' },
+      { flags: '--has-video-cart', description: 'requires a TikTok seed and stored post-level product anchor evidence' },
       { flags: '--dedup-days <n>', description: 'skip creators seen in past N days (default 3, 0 = off)' },
       { flags: '--timeout <s>', description: 'poll timeout in seconds (default 120)' },
     ],
@@ -185,6 +187,7 @@ export const API_COMMANDS: CommandDef[] = [
       const seedProfileUrl = required<string>(opts.url, '--url')
       const body: Record<string, unknown> = {
         seedProfileUrl,
+        hasVideoCart: opts.hasVideoCart ? true : undefined,
         dedupDays: num(opts.dedupDays) ?? 3,
         regions: parseList(opts.regions),
         languages: parseList(opts.languages),
@@ -229,6 +232,23 @@ export const API_COMMANDS: CommandDef[] = [
         method: 'POST',
         path: '/creators/recent-posts',
         body: { url, limit },
+        timeoutMs: 45_000,
+      }))
+    },
+  },
+  {
+    name: 'tiktok-cart',
+    summary: 'Check recent stored TikTok posts for product anchors',
+    billing: '0.1 AI credits per successful query; failed queries do not charge',
+    options: [
+      { flags: '--url <url>', description: 'direct TikTok profile URL (required)' },
+      { flags: '--limit <n>', description: 'number of stored posts to examine, 1–60 (default 20)' },
+    ],
+    async run(opts) {
+      emit(await apiRequest({
+        method: 'POST',
+        path: '/creators/recent-posts',
+        body: { url: required(opts.url, '--url'), limit: creatorLookupLimit(opts.limit), cartOnly: true },
         timeoutMs: 45_000,
       }))
     },
@@ -559,6 +579,7 @@ export const API_COMMANDS: CommandDef[] = [
   },
   ...SEARCH_COMMANDS,
   ...EMAIL_COMMANDS,
+  ...CREATOR_WORKFLOW_COMMANDS,
 ]
 
 /** schema-friendly view of a command (no handler). */

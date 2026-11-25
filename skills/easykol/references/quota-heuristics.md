@@ -28,6 +28,9 @@ a refund is final only when settlement.pending=false.
 | `search` | **N raw quota** | Original V1 contract |
 | `kol` | 1 per 5 calls | Accumulates; charged every 5th call |
 | `creator-recent-posts` | 0.1 AI credits per successful query | An empty result for a stored profile counts as successful. Failed queries do not charge. |
+| `tiktok-cart` | 0.1 AI credits per successful query | Uses the same billing as recent posts. Failed queries do not charge. |
+| `fake-followers` | 2 AI credits per new standalone sample report | Eligible reuse and `fake-followers-result` are free. |
+| `favorites-*` | 0 | Project favorites, sharing and standard favorites Excel export. |
 | `creators-by-email` | 0.1 AI credits per returned creator | Zero matches are free. Default cap of 20 creators costs at most 2 points. |
 | `video` | 1 per 5 calls | Accumulates; charged every 5th call |
 | `video-analysis` | **0.5 AI credits** | New task acceptance. Resuming with the same task ID adds no charge. |

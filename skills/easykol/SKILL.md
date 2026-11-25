@@ -77,6 +77,9 @@ The API helper documents itself — use it rather than memorising parameters:
 | Check an existing audience report or resume after waiting stopped | `audience-result --task-id` |
 | Get emails for a list of creator URLs | `emails` |
 | Find stored creators linked to one exact contact email | `creators-by-email` |
+| Manage favorites, share read-only snapshots or export Excel | `favorites-*`. See [creator workflows](references/creator-workflows.md) |
+| Start or read a standalone fake-follower sample report | `fake-followers` / `fake-followers-result`. See [creator workflows](references/creator-workflows.md) |
+| Filter TikTok creators by stored posts with product anchors or check one profile | `search-v2` / `similar` with `--has-video-cart`, or `tiktok-cart`. See [creator workflows](references/creator-workflows.md) |
 | Read existing tracked placements, including by placement tag, and their saved metrics or trends | `tracked-videos` / `tracked-video-trends` (free). Read `references/tracked-videos.md` |
 | Fetch video / post data independently by URL | `video` |
 | Analyze, break down or translate TikTok / Instagram video content | `video-analysis` or `video-analysis-result` for an existing task. Read [video analysis](references/video-analysis.md) |

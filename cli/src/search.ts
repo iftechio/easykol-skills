@@ -84,6 +84,8 @@ export function searchInput(opts: any) {
   const platform = String(required(opts.platform, '--platform')).toUpperCase()
   if (!['TIKTOK', 'YOUTUBE', 'INSTAGRAM'].includes(platform))
     fail(EXIT.PARAMS, '--platform must be TIKTOK|YOUTUBE|INSTAGRAM')
+  if (opts.hasVideoCart && platform !== 'TIKTOK')
+    fail(EXIT.PARAMS, '--has-video-cart requires --platform TIKTOK')
   if (opts.hasTkShop && platform !== 'TIKTOK')
     fail(EXIT.PARAMS, '--has-tk-shop requires --platform TIKTOK')
   if (opts.gender && !['male', 'female'].includes(opts.gender))
@@ -118,6 +120,7 @@ export function searchInput(opts: any) {
       mustExclude: list(opts.exclude),
       hasContactInfo: opts.hasContact ? true : undefined,
       hasTkShop: opts.hasTkShop ? true : undefined,
+      hasVideoCart: opts.hasVideoCart ? true : undefined,
       gender: opts.gender,
       skinColor: list(opts.skinColors),
       ageRange: opts.ageRange,
@@ -182,6 +185,7 @@ const inputOptions: OptionDef[] = [
     flags: '--has-tk-shop',
     description: 'require stored TikTok Shop presence (TIKTOK only)',
   },
+  { flags: '--has-video-cart', description: 'require stored TikTok post-level product anchor evidence' },
   { flags: '--gender <g>', description: 'creator gender male | female' },
   {
     flags: '--skin-colors <list>',

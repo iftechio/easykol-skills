@@ -567,6 +567,90 @@
         "Leaves creator emails off",
         "Does not re-run the search, change project ratings or switch to project favorites export"
       ]
+    },
+    {
+      "id": 46,
+      "category": "email-action-scope",
+      "prompt": "把这批博主的邮箱找出来，我后面要做群发。先把名单发我看看。",
+      "expected_output": "Find creator contact addresses and share the list with the user.",
+      "files": [],
+      "expectations": [
+        "Uses the creator contact lookup workflow",
+        "Returns the list in chat or as a result artifact",
+        "Makes no outreach, template, mailbox or send-plan changes"
+      ]
+    },
+    {
+      "id": 47,
+      "category": "email-action-scope",
+      "prompt": "用 EasyKOL 的春季合作模板写一版开场白，预览一下发我看看。",
+      "expected_output": "Show an on-screen or local preview with no live write.",
+      "files": [],
+      "expectations": [
+        "Reads the template and prepares the preview in chat, locally or on screen",
+        "Does not click either test-send control or save to the live template",
+        "Does not change the default sender to preview copy"
+      ]
+    },
+    {
+      "id": 48,
+      "category": "email-action-scope",
+      "prompt": "EasyKOL 春季合作模板发一封测试到我的邮箱就行。模板有两封自动跟进。",
+      "expected_output": "Preserve the one-message test scope.",
+      "files": [],
+      "expectations": [
+        "Recognizes that the regular test button also saves the template and sends follow-up copies",
+        "Checks whether a supported test can deliver exactly one approved message from the intended sender to the intended mailbox",
+        "Keeps the template and default sender unchanged and stops if the only available test adds unapproved effects"
+      ]
+    },
+    {
+      "id": 49,
+      "category": "email-action-scope",
+      "prompt": "看看 EasyKOL 的 outreach@example.com 昨天发的邮件有多少没回复。",
+      "expected_output": "Report the scoped stored reply status.",
+      "files": [],
+      "expectations": [
+        "Uses the requested sender and date range",
+        "Reads the most recent available stored status and reports its freshness when known",
+        "Does not trigger selected-mailbox or account-wide sync, resend, or follow-up"
+      ]
+    },
+    {
+      "id": 50,
+      "category": "email-action-scope",
+      "prompt": "帮我给 EasyKOL 的企业模板想一句没回复时第 3 天用的跟进，先看看怎么写。",
+      "expected_output": "Provide follow-up copy in chat for review.",
+      "files": [],
+      "expectations": [
+        "May read the current sequence and drafts the proposed copy locally",
+        "Does not edit the web follow-up step or run email-followups-set",
+        "Does not add live schedules for existing conversations"
+      ]
+    },
+    {
+      "id": 51,
+      "category": "email-action-scope",
+      "prompt": "用 EasyKOL 按已确认的预览提交。只给 a@example.com 和 b@example.com，用 outreach@example.com，春季合作模板，今天 18:00 上海时间，不带跟进。",
+      "expected_output": "Submit once if the verified settings match the approved preview.",
+      "files": [],
+      "expectations": [
+        "Rechecks exact recipients, single sender, template, displayed scheduled time and absence of follow-ups",
+        "Submits once directly when all verified details match",
+        "Stops at preview when the browser cannot represent the time or the sender, recipients, template content or follow-ups differ from the approval"
+      ]
+    },
+    {
+      "id": 52,
+      "category": "email-action-scope",
+      "prompt": "上一轮 EasyKOL 群发点确认后超时了。先看有没有进队列。",
+      "expected_output": "Check existing plans and report confirmed and uncertain outcomes.",
+      "files": [],
+      "expectations": [
+        "Matches existing plans by original recipients, sender, template and submission time",
+        "Reports any unverified recipients without interpreting no visible record as a failed send",
+        "Does not click confirm again or fall back to sending single emails"
+      ]
     }
   ]
 }

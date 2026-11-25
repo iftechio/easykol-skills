@@ -23,34 +23,46 @@ reporting.
 2. Choose the personal or enterprise template. Use [邮件模板 / Email
    Templates](https://app.easykol.com/email/template) to create or edit it or use
    the [API workflow](email.md#templates). Preview the rendered subject, body,
-   personalization and attachments or CC if applicable. An address-only import
+   personalization and any CC or BCC. An address-only import
    can derive a name from the address. Check names before using a personalized
    greeting. For individualized openings, preview representative recipients and
-   check the source used for each claim. If every recipient needs a different
+   check the source used for each claim. Generated openings can change when
+   EasyKOL sends the email. If every recipient needs a different
    subject or full body, use separately reviewed single sends or supported
    template groups. The batch recipient list does not take arbitrary per-row
    subjects and bodies.
+   Queued plans use the saved template and its follow-up sequence at send time.
+   Before editing a template, confirm the user authorizes changes to any queued
+   sends that use it. For a change limited to a new batch, use a different
+   authorized template.
 3. Check the final send dialog for recipient count, template, sender mode, actual
    sender addresses, scheduling and spacing, and attached automated follow-ups.
+   The scheduling dialog takes whole hours relative to submission. Verify its
+   estimated start and timezone against the requested time before proceeding.
    When a sender was named, select single-mailbox mode and verify its address.
-   Use multi-mailbox rotation only within the authorized sender scope. Split by
-   sender when the request assigns different recipients to different mailboxes.
+   Rotation draws from the account's eligible mailbox pool. Use it only if the
+   entire pool is authorized. Split by sender when the request assigns different
+   recipients to different mailboxes.
    Check mailbox authorization and available sending limits before submission.
-4. Submit once when authorization covers those actual recipients, content and
-   settings. If the response is lost, search existing send records or batch
-   progress for the same submission before considering any resend. Record the
-   batch reference when shown, or the template, sender, submission time and
-   accepted recipient count. Report queued or scheduled recipients separately
-   from sent, failed, paused, canceled and skipped recipients.
+4. Submit once when authorization covers those recipients, content and settings.
+5. In [Batch Send Details](https://app.easykol.com/email/batchSend?showDetail=1),
+   match plan rows by recipient, sender, template and creation time. The account's
+   summary card is an aggregate across submissions. Use matched rows to report
+   queued, scheduled, sent, failed, paused and canceled counts, and identify any
+   recipients you could not verify. The dialog count is an estimate before
+   submission. If the outcome is uncertain, check the plan and send records and
+   leave it unconfirmed until you can establish whether it was queued or sent.
 
 ## Follow-ups and conversation handling
 
 - Use [邮件模板](https://app.easykol.com/email/template) to view or configure an
-  initial template's automatic sequence. Verify text and days for each step,
-  original sender, and whether saving changes already scheduled sends. EasyKOL
-  handles the schedule and checks for replies. Recheck the saved sequence and
-  pending status when the page exposes it. The [email API](email.md#automatic-follow-ups)
-  can also manage sequences.
+  initial template's automatic sequence. Verify text, days and the original
+  sender. Saving can modify pending steps and add steps to existing conversations,
+  including teammates' schedules for a shared template. Confirm the affected
+  scope before saving. EasyKOL uses synced reply status and creates follow-up
+  plans after a successful first send when it can link the original conversation.
+  Recheck the saved sequence and pending plans. The
+  [email API](email.md#automatic-follow-ups) can also manage sequences.
 - Use [跟进模板 / Follow-up Templates](https://app.easykol.com/email/follow-up-templates)
   for reusable stage-specific copy. Use [邮件跟进 / Follow-up Workbench](https://app.easykol.com/email/follow-up)
   for project-scoped conversations, stages, notes and manual or batch follow-up.
@@ -65,19 +77,23 @@ reporting.
   Use that broader action only when it matches the request. A submitted sync
   runs in the background. Recheck the sync time or affected records before
   reporting refreshed results.
-- For authorized resumption or schedule adjustments, find the specific plan in
-  [邮件追踪 / Send Details](https://app.easykol.com/email/sendDetails) and check
-  the affected scope before submitting. A bulk action can include both first
-  emails and follow-ups. Apply the environment's data-deletion restrictions to
-  any action that removes records or clears schedules.
+- For authorized plan actions, verify the selected rows in
+  [邮件追踪 / Send Details](https://app.easykol.com/email/sendDetails). The global
+  resume action can include paused first emails and follow-ups across eligible
+  mailboxes. The global delay action changes spacing for pending and paused
+  batch emails across the account.
+  Use global controls only when the requested scope covers all affected plans.
 
 ## Records, replies and reporting
 
 - Use [邮件追踪 / Send Details](https://app.easykol.com/email/sendDetails) for
   sent-mail read/reply filters, date range, sender, template, send status/type,
-  batch progress and CSV export where available. Verify the filter state and
-  total before reporting. When exporting, verify the downloaded row count against
-  the filtered total and report any coverage limit. Use the enterprise view only for authorized administrators.
+  and CSV export in the personal view. Include unsent plans when checking the
+  queue. Check that every record you summarize matches the requested scope.
+  The export reads at most 50,000 top-level records and adds separate rows for
+  their follow-ups. The page total counts top-level records. Verify the download,
+  report any coverage limit and check follow-up rows before counting them toward
+  a filtered result. The enterprise statistics view requires an administrator.
 - For a specific email ID, use `email-record --id`. For API list reads, use
   `email-records` with the applicable recipient/template filters and paginate
   using `hasMore`. Aggregate only in-scope sent records. Disclose a partial

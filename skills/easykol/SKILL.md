@@ -23,7 +23,7 @@ Full-workflow creator intelligence skill for influencer discovery, creator profi
 audience analysis, bulk email extraction, and video analytics across YouTube, TikTok,
 and Instagram, with email template and outreach management.
 
-The user interacts through natural language. Call the EasyKOL API using the bundled
+The user interacts through natural language. For API operations, use the bundled
 `{baseDir}/scripts/api.cjs` script and report results in plain language. It needs only
 Node.js 18.3+; no `easykol` installation, npm package publication or npm login is needed.
 Run operations with `node "{baseDir}/scripts/api.cjs" <operation> [options]`.
@@ -48,15 +48,15 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 
 - Post content, send DMs, or interact with social platforms
 - Make final campaign-budget or partnership decisions
-- Work in a chat environment that cannot execute the bundled Node.js script
+- Run API operations in a chat environment without Node.js
 
 ## Core Principles
 
 ### Agent-First
 
-The agent operates the bundled script. Run operations silently and report results
-in plain language. Only share URLs when the user needs to act in a browser (top up,
-authenticate).
+The agent runs API operations with the bundled script and uses the signed-in browser
+for web workflows. Report results in plain language. Share URLs when the user needs
+to act in a browser, such as to top up or authenticate.
 
 ### API Helper Self-Description
 
@@ -105,7 +105,7 @@ with the intended signed-in account. API setup is only needed for API operations
 
 For Feishu Bitable automation, follow [the Feishu workflow authorization and setup](references/feishu-workflow.md). Its first-time browser approval flow does not require asking the user for an EasyKOL API Key.
 
-At session start, run `node "{baseDir}/scripts/api.cjs" doctor`. This checks
+Before using the API, run `node "{baseDir}/scripts/api.cjs" doctor`. This checks
 Node.js, existing configuration and connectivity without installing anything.
 
 1. Reuse the existing `~/.easykol/config.json` (or `EASYKOL_CONFIG_DIR`) when it

@@ -69,7 +69,7 @@ for the current request. The bundled transport preserves quote-based budgets, st
 idempotency keys and request journals. Email templates, connected senders,
 follow-ups and results use `/external/v1/email`; sending requires authorization,
 and uncertain sends are never retried automatically. The Skill also operates the
-EasyKOL web workflow for personalized bulk sends, batch progress, read/reply
+EasyKOL web workflow for personalized bulk sends, send-plan tracking, read/reply
 statistics, inbox and mailbox authorization. See the [email workflow guide](skills/easykol/references/email-web.md).
 API authentication uses `ek-api-key` and `ek-api-email`.
 

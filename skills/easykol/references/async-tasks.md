@@ -9,7 +9,7 @@ After polling stops, continue reading the existing search or audience task by ID
 ```
 node "{baseDir}/scripts/api.cjs" similar --url <url>          # ~30s, polls until done
 node "{baseDir}/scripts/api.cjs" emails --yt-urls <url1,url2> # ~60s, polls until done
-node "{baseDir}/scripts/api.cjs" audience --url <url>         # instant on cache hit; up to 2 min on miss
+node "{baseDir}/scripts/api.cjs" audience --url <url>         # instant on cache hit; polls for up to 120s on miss
 ```
 
 The API helper blocks until the task completes or times out, then emits the standard
@@ -42,12 +42,10 @@ user wants to come back later. Query with the account that started the task.
 
 ## `audience` Cache Behaviour
 
-`audience` checks for any existing result within the past **30 days** before creating
-a new task. On a cache hit the command returns immediately. On a miss it creates a new analysis task.
-A new analysis costs **20 raw quota**; a cache hit is free.
-
-You do not need to manage cache state — the backend handles it. Plan paid calls within the user's authorization;
-only the first call for a creator within 30 days incurs cost.
+`audience` can reuse a completed report from the past **30 days** at the same or a
+higher tier. A cache hit is free. A new analysis costs **1, 2, or 6 AI credits**
+depending on `--data-multiplier` (default 2). Requesting a higher tier can create
+a new paid analysis even if a lower-tier report exists.
 
 ## Telling the User
 

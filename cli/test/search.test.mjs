@@ -11,6 +11,7 @@ async function harness(t, options = {}) {
   const requests = [],
     tasks = new Map(),
     byKey = new Map()
+  const workbook = Buffer.from('504b0304', 'hex')
   let charges = 0,
     uncertain = options.uncertain,
     partial = options.partial
@@ -19,7 +20,10 @@ async function harness(t, options = {}) {
     for await (const chunk of req) raw += chunk
     const body = raw ? JSON.parse(raw) : undefined
     const url = new URL(req.url, 'http://localhost')
-    requests.push({ method: req.method, path: url.pathname, body })
+    requests.push({
+      method: req.method, path: url.pathname, body,
+      ...(url.search ? { query: Object.fromEntries(url.searchParams) } : {}),
+    })
     res.setHeader('content-type', 'application/json')
     const send = (data) =>
       res.end(
@@ -33,6 +37,11 @@ async function harness(t, options = {}) {
     if (options.unavailable) {
       res.statusCode = 404
       return res.end('{"message":"Not found"}')
+    }
+    if (url.pathname.endsWith('/export')) {
+      if (options.invalidWorkbook) return send({ url: 'about:blank' })
+      res.setHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      return res.end(workbook)
     }
     if (url.pathname === '/external/v1/intelligent-search/parse')
       return send({
@@ -53,7 +62,8 @@ async function harness(t, options = {}) {
           ...body,
           canonicalTags: body.canonicalTags ?? [],
           keywords: body.keywords ?? [],
-          expandedQuery: body.sentence,
+          expandedQuery: body.expandedQuery ?? body.sentence,
+          ...(options.dropFilter ? { [options.dropFilter]: undefined } : {}),
         },
         quote: {
           unit: 'taskPoints',
@@ -75,7 +85,11 @@ async function harness(t, options = {}) {
           resultsReady: !options.processing,
           data: [],
           nextOffset: null,
-          quote: { unit: 'taskPoints', reserved: options.quote ?? 1 },
+          quote: {
+            unit: 'taskPoints',
+            reserved: options.quote ?? body.batchCount ?? parent?.quote.batchCount ?? 1,
+            batchCount: body.batchCount ?? parent?.quote.batchCount ?? 1,
+          },
           settlement: { pending: false, net: options.net ?? 1 },
         }
         tasks.set(task.taskId, task)
@@ -95,7 +109,21 @@ async function harness(t, options = {}) {
       }
       return send(task)
     }
-    return send(tasks.get(url.pathname.split('/').at(-1)))
+    const task = tasks.get(url.pathname.split('/').at(-1))
+    const applicable = [
+      'attitude', 'includeSimilarFavorites', 'hasEmail', 'updatedWithin60Days', 'hasTkShop', 'isAmzPartner',
+    ]
+    const resultFilters = {}
+    for (const name of applicable) {
+      const value = url.searchParams.get(name)
+      if (value !== null) resultFilters[name] = name === 'attitude' ? value : value === 'true'
+    }
+    const projectId = url.searchParams.get('projectId')
+    return send({
+      ...task,
+      ...(projectId ? { effectiveParameters: { ...task?.effectiveParameters, projectId } } : {}),
+      ...(options.dropResultFilter ? {} : { resultFilters }),
+    })
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const base = `http://127.0.0.1:${server.address().port}`
@@ -132,6 +160,8 @@ async function harness(t, options = {}) {
     run,
     requests,
     tasks,
+    output: join(dir, 'report.xlsx'),
+    workbook,
     charges: () => charges,
     spent: () => JSON.parse(readFileSync(join(dir, 'search-session.json'))).spent,
   }
@@ -231,6 +261,14 @@ test('v2 rejects invalid platform-specific and bounded filters before remote req
   const h = await harness(t)
   for (const args of [
     [...search, '--platform', 'YOUTUBE', '--has-tk-shop'],
+    [...search, '--view-min', '1500'],
+    [...search, '--only-video-creators'],
+    [...search, '--platform', 'INSTAGRAM', '--view-min', '1000', '--avg-min', '50'],
+    [...search, '--platform', 'INSTAGRAM', '--use-median-play-count', '--avg-min', '50'],
+    [...search, '--match-precision-mode', 'exact'],
+    [...search, '--search-data-mode', 'realtime'],
+    [...search, '--mode', 'tag'],
+    [...search, '--mode', 'keyword'],
     [...search, '--last-published-days', '0'],
     [...search, '--last-published-days', '3.5'],
     [...search, '--gender', 'unknown'],
@@ -239,6 +277,70 @@ test('v2 rejects invalid platform-specific and bounded filters before remote req
     assert.equal(response.code, 6)
   }
   assert.equal(h.requests.length, 0)
+})
+test('passes Instagram playback, direct contact, reviewed wording and hard filters without dropping them', async (t) => {
+  const h = await harness(t)
+  const args = [
+    ...search, '--platform', 'INSTAGRAM', '--locale', 'zh', '--view-min', '1000',
+    '--view-max', '9000', '--use-median-play-count',
+    '--only-video-creators', '--has-direct-contact', '--is-amz-partner',
+    '--expanded-query', 'Actual gear reviews', '--focus-keyword', 'gear',
+    '--match-precision-mode', 'strict', '--bio-only', '--tones', 'tutorial,authoritative',
+    '--tone-exclude', 'risque',
+  ]
+  const response = await h.run(args)
+  assert.equal(response.code, 0, response.err)
+  const expected = {
+    locale: 'zh',
+    viewMin: 1000,
+    viewMax: 9000,
+    useMedianPlayCount: true,
+    onlyVideoCreators: true,
+    hasDirectContact: true,
+    isAmzPartner: true,
+    expandedQuery: 'Actual gear reviews',
+    focusKeyword: 'gear',
+    matchPrecisionMode: 'strict',
+    bioOnly: true,
+    tone: ['tutorial', 'authoritative'],
+    toneExclude: ['risque'],
+  }
+  for (const { body } of h.requests) {
+    for (const [field, value] of Object.entries(expected)) {
+      assert.deepEqual(body[field], value)
+    }
+  }
+})
+test('a server preparation that loses an explicit filter cannot trigger a paid search', async (t) => {
+  const h = await harness(t, { dropFilter: 'useMedianPlayCount' })
+  const response = await h.run([...search, '--use-median-play-count'])
+  assert.equal(response.code, 6)
+  assert.match(response.json.error.message, /useMedianPlayCount.*No paid search/)
+  assert.equal(h.requests.length, 1)
+  assert.equal(h.charges(), 0)
+})
+test('tag and keyword searches use the V2 quote and create direct tasks without a sentence', async (t) => {
+  const h = await harness(t)
+  const options = [['tag', '--tags', 'canonicalTags'], ['keyword', '--keywords', 'keywords']]
+  for (const [mode, flag, field] of options) {
+    const response = await h.run([
+      'search-v2', '--mode', mode, '--platform', 'TIKTOK', flag, 'camping,outdoors',
+      '--search-data-mode', 'realtime', '--idempotency-key', `request-${mode}`, '--no-wait',
+    ])
+    assert.equal(response.code, 0, response.err)
+    assert.equal(h.requests.at(-2).path, '/external/v2/intelligent-search/parse')
+    assert.equal(h.requests.at(-1).path, '/external/v2/intelligent-search')
+    assert.equal(h.requests.at(-1).body.searchMode, mode)
+    assert.equal(h.requests.at(-1).body.searchDataMode, 'realtime')
+    assert.deepEqual(h.requests.at(-1).body[field], ['camping', 'outdoors'])
+    assert.equal(h.requests.at(-1).body.sentence, undefined)
+  }
+  const changed = await h.run([
+    'search-v2', '--mode', 'tag', '--platform', 'TIKTOK', '--tags', 'music',
+    '--idempotency-key', 'request-tag', '--no-wait',
+  ])
+  assert.equal(changed.code, 6)
+  assert.equal(h.charges(), 2)
 })
 test('uncertain paid submission recovers with the persisted original key/body and one reservation', async (t) => {
   const h = await harness(t, { uncertain: true })
@@ -377,6 +479,60 @@ test('continuation submits only a new key to the exact completed source', async 
   assert.equal(next.json.data.searchMode, 'fast')
   assert.equal(h.charges(), 2)
 })
+test('project-scoped task and continuation forward project ownership and optional batch count', async (t) => {
+  const h = await harness(t)
+  await h.run(search)
+  const result = await h.run([
+    'task', '--task-id', 'task-1', '--project-id', 'project-a', '--attitude', 'LIKE',
+    '--has-email', '--limit', '20',
+  ])
+  assert.equal(result.code, 0, result.err)
+  assert.deepEqual(h.requests.at(-1).query, {
+    projectId: 'project-a', attitude: 'LIKE', hasEmail: 'true', limit: '20',
+  })
+  const continued = await h.run([
+    'search-next', '--task-id', 'task-1', '--project-id', 'project-a', '--batches', '3',
+    '--idempotency-key', 'project-next', '--no-wait',
+  ])
+  assert.equal(continued.code, 0, continued.err)
+  assert.deepEqual(h.requests.at(-1).body, { idempotencyKey: 'project-next', projectId: 'project-a', batchCount: 3 })
+  const recovered = await h.run([
+    'search-next', '--task-id', 'task-1', '--idempotency-key', 'project-next', '--no-wait',
+  ])
+  assert.equal(recovered.code, 0, recovered.err)
+  assert.deepEqual(h.requests.at(-1).query, { projectId: 'project-a' })
+  assert.equal(h.charges(), 2)
+})
+test('task refuses unconfirmed result filters on an older API', async (t) => {
+  const h = await harness(t, { dropResultFilter: true })
+  await h.run(search)
+  const oldServer = await h.run(['task', '--task-id', 'task-1', '--has-email'])
+  assert.equal(oldServer.code, 6)
+  assert.match(oldServer.json.error.message, /did not confirm the requested result filters/)
+})
+test('task export preserves scope and filters, excludes email by default and does not overwrite', async (t) => {
+  const h = await harness(t)
+  const args = [
+    'search-export', '--task-id', 'web-task', '--project-id', 'project-a', '--attitude', 'NORATE',
+    '--output', h.output,
+  ]
+  const response = await h.run(args)
+  assert.equal(response.code, 0, response.err)
+  assert.deepEqual(h.requests[0].query, { projectId: 'project-a', attitude: 'NORATE' })
+  assert.deepEqual(readFileSync(h.output), h.workbook)
+  const duplicate = await h.run(args)
+  assert.equal(duplicate.code, 6)
+  assert.equal(h.requests.length, 1)
+  const withEmail = await h.run([...args, '--include-emails', '--output', h.output + '.xlsx'])
+  assert.equal(withEmail.code, 0)
+  assert.equal(h.requests.at(-1).query.includeEmails, 'true')
+})
+test('a published server response other than XLSX cannot be written as a successful export', async (t) => {
+  const h = await harness(t, { invalidWorkbook: true })
+  const response = await h.run(['search-export', '--task-id', 'web-task', '--output', h.output])
+  assert.equal(response.code, 5)
+  assert.throws(() => readFileSync(h.output), { code: 'ENOENT' })
+})
 test('a missing v2 deployment never falls back to v1', async (t) => {
   const h = await harness(t, { unavailable: true })
   const response = await h.run(search)
@@ -386,11 +542,15 @@ test('a missing v2 deployment never falls back to v1', async (t) => {
   assert.ok(h.requests.every((r) => r.path.startsWith('/external/v2/')))
   assert.equal(h.charges(), 0)
 })
-test('beta multi-batch is rejected locally before any remote request', async (t) => {
+test('beta permits an explicit multi-batch quote, within the web batch limit', async (t) => {
   const h = await harness(t)
-  const response = await h.run([...search, '--mode', 'beta', '--batches', '3'])
-  assert.equal(response.code, 6)
+  const rejected = await h.run([...search, '--mode', 'beta', '--batches', '21'])
+  assert.equal(rejected.code, 6)
   assert.equal(h.requests.length, 0)
+  const response = await h.run([...search, '--mode', 'beta', '--batches', '3'])
+  assert.equal(response.code, 0, response.err)
+  assert.equal(h.requests[0].body.batchCount, 3)
+  assert.equal(h.requests[1].body.batchCount, 3)
 })
 test('server quote above the session budget blocks before paid submission', async (t) => {
   const h = await harness(t, { quote: 6 })

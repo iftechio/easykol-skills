@@ -68,8 +68,10 @@ The API helper documents itself — use it rather than memorising parameters:
 
 | User intent | Command |
 |-------------|---------|
-| Read a search task / continue its next batch | `task --task-id` / `search-next --task-id` (same source mode and filters) |
-| Find creators matching a description | `search-v2 --mode fast|standard|beta` (default fast); `parse-v2 --mode` for optional preview |
+| Read a search task / continue its next batch | `task --task-id` / `search-next --task-id`; include `--project-id` for an owned website task |
+| Export Excel from a search task | `search-export --task-id --output`; include `--project-id` for an owned website task |
+| Find creators matching a description | `search-v2 --mode fast\|standard\|beta` (default fast). Preview with `parse-v2 --mode`. |
+| Search with explicit tags or keywords | `search-v2 --mode tag --tags ...` or `search-v2 --mode keyword --keywords ...` |
 | Find creators similar to a URL | `similar` |
 | Get a creator's profile by URL | `kol` |
 | List recent posts for a creator profile URL | `creator-recent-posts` (0.1 AI credits per successful query) |
@@ -124,19 +126,30 @@ The bundled helper calls the deployed external V2 API. Read
 
 | User intent | Mode | Existing web pipeline | Target per batch |
 |-------------|------|-----------------------|------------------|
-| Quick shortlist, no specified mode | `fast` (default; tell the user) | mode 8 historical, stored data + text relevance, background refresh | 60 |
-| Normal / standard search | `standard` | mode 8 regular, profile relevance + realtime refresh and hard-filter recheck | 50 |
-| Beta / Pro, product promotion fit or visual screening | `beta` | mode 7, product requirements + optional visual screening | 50 |
+| Quick shortlist, no specified mode | `fast` (default; tell the user) | mode 8 historical, stored data + text relevance, background refresh | 40 |
+| Normal / standard search | `standard` | mode 8 regular, profile relevance + realtime refresh and hard-filter recheck | 30 |
+| Beta / Pro, product promotion fit or visual screening | `beta` | mode 7, product requirements + optional visual screening | 30 |
+| Search with selected canonical tags | `tag` | mode 5 | 40 historical / 30 realtime |
+| Search with explicit keywords | `keyword` | mode 6 | 40 historical / 30 realtime |
 
-Never silently substitute modes. Beta permits exactly one batch per request.
+Use the live `quote.targetResults` for the current request. Default to one batch.
+Use standard or fast for natural-language search, and tag or keyword mode when
+the user requests those entry points. Use `--search-data-mode historical|realtime`
+for tag or keyword mode, with historical as the default. Beta accepts 1–20 batches
+on compatible deployments. If the backend still supports only a single beta
+batch or rejects a requested mode, report the response and preserve the chosen
+mode and budget. Supply the original project ID and task ID to read or continue
+an owned website search on a compatible deployment.
 For existing search tasks preserve their mode and filters; read
 `{baseDir}/references/pro-pagination.md` before continuation.
 
 ### Search Workflow
 
-1. Preflight the user's hard requirements. Search supports creator platform,
-   region/language, follower/performance range, recent activity, creator gender,
-   contact presence, content taxonomy and stored TikTok Shop presence.
+1. Preflight the user's hard requirements. Preserve platform, creator region and
+   language, follower and performance ranges, recent activity, contact and
+   content filters. For Instagram, use the selected likes or views range. For views, preserve the
+   requested average or median. See
+   [search filters](references/search-filters.md) for platform-specific support.
    Audience demographics require separate `audience` analysis; unsupported metrics
    such as TikTok Shop fulfilment rate must remain unverified. Do not convert an
    unsupported hard condition to a keyword and claim verification.
@@ -144,7 +157,8 @@ For existing search tasks preserve their mode and filters; read
    missing platform once. Put all target countries in one `--regions` list; omit
    filters the user did not specify rather than inventing thresholds. Consumer
    target age/gender belongs to Beta `--product` / `--audience`, not creator filters.
-3. Submit one `search-v2` by default. The API helper obtains a free mode-specific preparation
+3. Submit one `search-v2` by default. In tag or keyword mode, pass the exact lists
+   requested and skip AI rewriting. The API helper obtains a free mode-specific preparation
    and quote before the paid request. `parse-v2` is optional for showing / editing the
    plan, not a required user confirmation stage. The user's existing authorization
    applies to all necessary steps within their stated scope and budget.
@@ -153,9 +167,11 @@ For existing search tasks preserve their mode and filters; read
    search. Resume `task --task-id <id>` for free; if submission outcome is uncertain,
    recover `search-v2 --idempotency-key <original-key>` from the saved local journal.
    Never start a replacement paid search because polling timed out.
-5. Present the requested number from the readable results, dedup by `kolId` / URL,
-   and verify supported hard conditions against returned fields. Missing metrics,
-   `screening=unverified`, or unsupported requirements remain unverified. Describe
+5. Present up to the requested number from the readable results and deduplicate by
+   `kolId` / URL. Compare required filters with `effectiveParameters` and verify
+   supported hard conditions against returned fields. Keep missing or unapplied
+   filters, missing metrics, `screening=unverified` and unsupported requirements
+   marked as unverified. Describe
    partial candidates honestly. Contact presence does not prove a public or
    deliverable email; count actual non-empty emails when required.
 
@@ -179,9 +195,17 @@ as zero recall or treat unknown judgments as rejection.
   `search-next --task-id <latest-id>` using a new idempotency key. It inherits mode,
   platform and filters. Continue serially from each returned child task; do not
   branch from an older parent or launch parallel continuations.
-- Stop when the user's requested number is reached. A batch target is not a
-  guaranteed quantity. Explain a shortfall without automatically changing modes,
-  weakening filters or running unrelated searches.
+- For an owned website search, include `--project-id <id>` and the exact task ID.
+  Use `task` filters for the requested category or attributes, and preserve them for
+  `search-export`. `search-next --batches` changes continuation size within the
+  authorized limit. The source filters and mode are inherited.
+- Stop when the user's requested number is reached. Explain any shortfall and keep
+  the mode and filters the user chose.
+
+For Excel, use `search-export --task-id <id> --output <path>`. Add
+`--project-id <id>` for owned website tasks and apply the requested result filters.
+Creator emails are omitted by default. Use `--include-emails` when requested.
+See [search results and export filters](references/search-filters.md#result-and-export-filters).
 
 ### Budget Control
 
@@ -206,17 +230,16 @@ user's authorized budget. `estimatedTotal` is not a complete candidate pool.
 `search` / `parse` keep their original V1 names, options and behavior. They do not share the V2 search
 contract or support task continuation. `more-words` is also a V1 utility. Do not
 silently use them when V2 returns 404 or a mode-specific request fails; report the
-backend/version mismatch. Existing profile, video, emails, similar and audience
-commands continue using their existing endpoints.
+backend/version mismatch. Profile, video, emails, similar and audience commands use their own endpoints.
 
 ### Lookalike Discovery
 
 Use `node "{baseDir}/scripts/api.cjs" similar --url <profile-url>` when the user wants creators similar to a
 specific channel. This is async and takes ~30s; tell the user you are searching.
 
-Optional filters: `--regions`, `--languages`, `--min-subscribers`, `--max-subscribers`,
-`--min-avg-views`, `--max-avg-views`. `--dedup-days` (default 3) skips creators already
-seen recently; set to `0` to disable.
+Use [the similar-search filter list](references/search-filters.md#similar-filters)
+for follower, region, language and performance ranges. `--dedup-days` defaults
+to 3 and can be set to `0` to disable this history filter.
 
 Present results the same way as `search` results.
 
@@ -247,9 +270,12 @@ choose. Set `--data-multiplier 1|2|6` to select a tier:
 - **2× · 2 AI credits (default)** — recommended for routine analysis.
 - **6× · 6 AI credits** — larger sample for evaluating higher-priced creators.
 
-These are prices for new reports. A completed report from the past 30 days
-at the same or a higher tier can be reused for free. A lower-tier result does
-not substitute for a higher-tier request.
+These prices apply when the deployed audience endpoint supports sample tiers.
+For 1× and 6×, the helper checks deployment support through a free `quota` read
+before submitting an analysis. An older deployment may offer only the default
+2×. A completed report from the past 30 days at the same or a higher tier can be
+reused for free. Follow [the deployment error guidance](references/error-codes.md)
+if the server cannot verify the selected tier.
 
 Run `node "{baseDir}/scripts/api.cjs" audience --url <profile-url>` to fetch:
 
@@ -327,7 +353,8 @@ node "{baseDir}/scripts/api.cjs" emails --yt-urls <url1,url2,...>
 node "{baseDir}/scripts/api.cjs" emails --ins-urls <url1,url2,...>
 ```
 
-Flags can be combined for mixed-platform batches. Costs 1 quota per 5 URLs (rounded up).
+Flags can be combined for mixed-platform batches. The charge is 0.1 AI credits
+per 5 URLs, rounded up.
 
 The command returns a `downloadUrl` for an Excel file. Tell the user the file is ready
 and share the URL.
@@ -348,7 +375,9 @@ post-detail response; v5 values are not used. For either field, `null` means the
 v3 endpoint did not provide that metric (it is not a measured zero). Do not
 combine or substitute these fields.
 
-Supported: YouTube videos, TikTok posts, Instagram reels/posts.
+Supported: YouTube videos, TikTok posts, Instagram reels/posts, Facebook videos
+and Threads posts. Five successful video data queries accrue 0.1 AI credits.
+Website video refresh and AI content analysis have separate billing.
 
 Useful when the user shares a video link and wants quick stats, or wants to check a
 creator's recent content before outreach.
@@ -359,8 +388,10 @@ creator's recent content before outreach.
 
 Sending and the paid `creator-recent-posts` and `creators-by-email` commands are
 never retried automatically, including on 429, network errors, timeouts or 5xx.
-Recover paid search using the original key/task. Retry a failed free read at most
-once with backoff; other mutations require checking the existing result first.
+Recover V2 paid search using the original key/task. Retry a failed free read at
+most once with backoff and check the existing result before retrying any mutation.
+If the server returns a route-not-found response or rejects a field listed by the
+installed helper, follow [the deployment error guidance](references/error-codes.md).
 
 For all failures, use the API helper response:
 - `action.url` — where the user should go (top up, authenticate)

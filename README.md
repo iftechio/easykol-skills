@@ -13,7 +13,13 @@ and reports results — the user just describes what they want.
 npx skills add https://github.com/iftechio/easykol-skills --skill easykol --agent claude-code
 ```
 
-### Cursor / Codex
+### Codex
+
+```bash
+npx skills add https://github.com/iftechio/easykol-skills --skill easykol --agent codex
+```
+
+### Cursor
 
 ```bash
 npx skills add https://github.com/iftechio/easykol-skills --skill easykol --agent cursor
@@ -39,7 +45,8 @@ operations. Never put a real key in a command argument or a shared prompt.
 
 Update the Skill from the same GitHub source to receive both instructions and the
 bundled script. The separate `cli/` package remains available for optional manual use;
-the Skill does not install or depend on it.
+the Skill does not install or depend on it. An npm release may lag this repository.
+Use the bundled script for the capabilities documented in this Skill.
 
 ## Repository layout
 
@@ -55,8 +62,10 @@ evals/                            # eval suite (TBD)
 
 ## Capabilities and development
 
-Search supports fast, standard and beta modes, free stored-page reads and serial
-task continuation. The bundled transport preserves quote-based budgets, stable
+Search supports fast, standard, beta, tag and keyword modes, free stored-page
+reads and serial continuation. Current batch targets are 40 for fast or historical
+tag/keyword, and 30 for standard, beta or realtime tag/keyword. Use the live quote
+for the current request. The bundled transport preserves quote-based budgets, stable
 idempotency keys and request journals. Email templates, connected senders,
 follow-ups and results use `/external/v1/email`; sending requires authorization,
 and uncertain sends are never retried automatically. Authentication remains

@@ -11,11 +11,17 @@ import { promisify } from 'node:util'
 test('audience submits the selected tier and defaults to 2×', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'easykol-audience-tiers-'))
   const requests = []
+  let advertisesTiers = true
   const server = createServer(async (req, res) => {
     let body = ''
     for await (const part of req) body += part
-    requests.push({ method: req.method, path: req.url, body: JSON.parse(body) })
+    requests.push({ method: req.method, path: req.url, body: body ? JSON.parse(body) : undefined })
     res.setHeader('content-type', 'application/json')
+    if (req.url === '/external/v1/quota') {
+      return res.end(JSON.stringify({
+        data: advertisesTiers ? { capabilities: { audienceDataMultipliers: [1, 2, 6] } } : {},
+      }))
+    }
     res.end(JSON.stringify({ data: { taskId: 'report-1', status: 'PROCESSING' } }))
   })
   t.after(() => new Promise((resolve) => server.close(resolve)))
@@ -33,7 +39,13 @@ test('audience submits the selected tier and defaults to 2×', async (t) => {
   await run()
   for (const tier of ['1', '2', '6']) await run('--data-multiplier', tier)
   await assert.rejects(run('--data-multiplier', '3'), { code: 6 })
-  assert.deepEqual(requests, [2, 1, 2, 6].map((dataMultiplier) => ({
+  advertisesTiers = false
+  await assert.rejects(run('--data-multiplier', '6'), { code: 6 })
+  await run()
+  assert.deepEqual(requests.map(({ method }) => method), [
+    'POST', 'GET', 'POST', 'POST', 'GET', 'POST', 'GET', 'POST',
+  ])
+  assert.deepEqual(requests.filter(({ method }) => method === 'POST'), [2, 1, 2, 6, 2].map((dataMultiplier) => ({
     method: 'POST', path: '/external/v1/audience', body: { url, dataMultiplier },
   })))
 })

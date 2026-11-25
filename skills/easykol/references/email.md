@@ -3,8 +3,9 @@
 Requires a backend release supporting `/external/v1/email` and the bundled
 API script exposing `email-template-list`. Check `node "{baseDir}/scripts/api.cjs" schema <command>` before execution. A 404
 means unavailable endpoint or inaccessible template; distinguish only when verified.
-Never silently switch to browser authentication or another account.
-Use the configured API key and email; never print credentials.
+Use the configured API key and email. For web-only actions or a verified API
+availability issue, use the [email web workflow](email-web.md) under the intended
+account. Keep credentials out of prompts, logs and output.
 
 ## Templates
 
@@ -32,14 +33,18 @@ accepts `followupEmails: [{"content":"...","daysAfter":3}]` with whole days >= 1
 `--confirm-scheduled-changes`. Saving synchronizes pending scheduled emails,
 including adding future follow-ups to active threads. Explain this impact and get
 authorization for the concrete sequence before setting the flag. Existing authorization
-applies; do not ask again when it already covers the change. Replacing the sequence
-can cancel removed pending steps; an empty array clears it. Explain that effect
-when it applies.
+applies when it already covers the change. A replacement can cancel pending steps.
+Apply the environment’s data-deletion rules before changing or clearing a
+sequence. EasyKOL runs the scheduled sequence and checks for replies in the
+original conversation. Check the thread and mailbox status in the web workflow
+when a plan is paused or a reply has not synced.
 Subjects stay `Re: <first email subject>`; per-follow-up subjects are unsupported.
 Sequence access follows the web template access rules; enterprise members can
 configure accessible shared sequences, which also affects team pending schedules.
 
-## Sending
+## Sending a single email
+
+Use the [web batch workflow](email-web.md#personalized-bulk-sending) for groups.
 
 `email-senders` lists connected mailboxes without credentials. New mailbox binding
 and reauthorization still use the web flow; do not claim API binding is supported.
@@ -67,6 +72,7 @@ tracking signals, not proof of human reading or live polling.
 `email-records [--page 1 --page-size 20 --to ... --template-id ...]` lists records
 in the web template-owner scope and own follow-ups. Shared-template API sends can
 also be read individually by their sender using `email-record`; keep returned IDs.
-No automatic send retry is implemented; there is no idempotent-send guarantee.
-No extra API task points are added; existing web email rules and limits apply.
+The list supports recipient and template filters. For read/reply filters, date
+ranges, batch progress, CSV, or enterprise totals, use [web reporting](email-web.md#records-replies-and-reporting).
+Existing web email rules and limits apply, with no additional API AI credits.
 Do not expose internal model/provider names in copy or explanations.

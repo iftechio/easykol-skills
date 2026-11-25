@@ -8,7 +8,8 @@ description: >-
   lookup by email, bulk email extraction, video metrics and AI content analysis
   of TikTok and Instagram videos,
   free reads of existing tracked placements and historical metrics,
-  email templates, connected senders, outreach sending and result queries,
+  EasyKOL email outreach: personalized bulk sends, custom templates, automatic
+  follow-ups for non-replies, mailbox management, and read/reply reporting,
   Feishu Bitable automation for creator metrics, and account setup. Use when the
   user mentions finding influencers, checking a creator's audience, getting
   creator emails, analyzing a video, automating creator metric backfill in
@@ -22,7 +23,7 @@ Full-workflow creator intelligence skill for influencer discovery, creator profi
 audience analysis, bulk email extraction, and video analytics across YouTube, TikTok,
 and Instagram, with email template and outreach management.
 
-The user interacts through natural language. Call the EasyKOL API using the bundled
+The user interacts through natural language. For API operations, use the bundled
 `{baseDir}/scripts/api.cjs` script and report results in plain language. It needs only
 Node.js 18.3+; no `easykol` installation, npm package publication or npm login is needed.
 Run operations with `node "{baseDir}/scripts/api.cjs" <operation> [options]`.
@@ -36,6 +37,8 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 - User wants to check a creator's profile, follower count, or contact info
 - User wants audience demographics: age, gender, region, or fake-follower rate
 - User wants to bulk-extract emails for a list of creator URLs
+- User wants to send or schedule EasyKOL outreach, configure follow-ups, manage
+  a connected mailbox, or check opens and replies
 - User wants video metrics or wants AI to analyze, break down or translate a TikTok or Instagram video
 - User wants to see their existing tracked videos, campaign placement metrics or saved trends
 - User wants Codex to set up a Feishu automation that fills creator metrics when a URL changes
@@ -45,15 +48,15 @@ Never expose raw operations, JSON or credentials in the user-facing answer.
 
 - Post content, send DMs, or interact with social platforms
 - Make final campaign-budget or partnership decisions
-- Work in a chat environment that cannot execute the bundled Node.js script
+- Run API operations in a chat environment without Node.js
 
 ## Core Principles
 
 ### Agent-First
 
-The agent operates the bundled script. Run operations silently and report results
-in plain language. Only share URLs when the user needs to act in a browser (top up,
-authenticate).
+The agent runs API operations with the bundled script and uses the signed-in browser
+for web workflows. Report results in plain language. Share URLs when the user needs
+to act in a browser, such as to top up or authenticate.
 
 ### API Helper Self-Description
 
@@ -86,7 +89,8 @@ The API helper documents itself — use it rather than memorising parameters:
 | Fetch video / post data independently by URL | `video` |
 | Analyze, break down or translate TikTok / Instagram video content | `video-analysis` or `video-analysis-result` for an existing task. Read [video analysis](references/video-analysis.md) |
 | Set up automatic creator metric backfill in Feishu Bitable | Read `references/feishu-workflow.md` |
-| Manage email templates, senders or outreach | `email-*`; read `references/email.md` |
+| Manage email templates, automatic follow-ups, connected senders, a single send or its result | [Email API workflow](references/email.md) |
+| Send a batch, check batch progress, query read/reply statistics, use the inbox or authorize a mailbox | [Email web workflow](references/email-web.md) |
 | Check remaining credits | `quota` |
 | Setup / diagnostics | `auth`, `doctor` |
 
@@ -96,9 +100,12 @@ For exact flags always run `node "{baseDir}/scripts/api.cjs" schema <cmd>` first
 
 ## 1. Getting Started
 
+For a web-only email task, use [the relevant email page](references/email-web.md)
+with the intended signed-in account. API setup is only needed for API operations.
+
 For Feishu Bitable automation, follow [the Feishu workflow authorization and setup](references/feishu-workflow.md). Its first-time browser approval flow does not require asking the user for an EasyKOL API Key.
 
-At session start, run `node "{baseDir}/scripts/api.cjs" doctor`. This checks
+Before using the API, run `node "{baseDir}/scripts/api.cjs" doctor`. This checks
 Node.js, existing configuration and connectivity without installing anything.
 
 1. Reuse the existing `~/.easykol/config.json` (or `EASYKOL_CONFIG_DIR`) when it
@@ -304,16 +311,18 @@ filter, unless the API explicitly supports that filter.
 
 ---
 
-## Email Templates, Connected Mailboxes and Outreach
+## EasyKOL Email Outreach
 
-Use `references/email.md` for template creation/updates, stage follow-up templates,
-automatic follow-up sequences, connected sender configuration, sending, and sent
-result queries. These commands require the matching backend release; verify the
-helper schema before use. Permission to draft or configure does not authorize actual
-email delivery. Existing authorization persists; do not repeatedly ask for it.
-For `email-send`, network errors, timeouts and 5xx can mean uncertain delivery:
-**never apply the generic retry rule below to email sending**. Read records first.
-New mailbox binding and reauthorization remain in the web flow.
+Use the [email API workflow](references/email.md) for API-backed work and the
+[email web workflow](references/email-web.md) for bulk sending, reporting, inbox,
+and other web-only actions. Prefer the requested route when supported. Confirm
+the intended account before switching between API and browser, and never change
+to a different sender or enterprise to work around missing permission.
+
+Codex prepares and operates the workflow. EasyKOL sends the mail, stores the
+results and runs any scheduled follow-ups. Send or resume delivery only within
+the user's explicit authorization for that action. Draft-only requests end at
+preview. Reconcile records before retrying a timed-out or uncertain submission.
 
 ### Recent Posts by Profile URL
 
@@ -414,7 +423,8 @@ Run `node "{baseDir}/scripts/api.cjs" doctor` as a first diagnostic when the cau
 
 ## References
 
-- `{baseDir}/references/email.md` — templates, automatic follow-ups, connected mailboxes, sending and result checks
+- `{baseDir}/references/email.md` — template and sequence management, connected senders, single emails and record reads
+- `{baseDir}/references/email-web.md` — personalized bulk outreach, schedules, status, statistics, inbox and mailbox tools
 
 - `{baseDir}/references/pro-pagination.md` — Pro single-page retrieval, task continuation, and helper/API boundaries
 - `{baseDir}/references/search-filters.md` — full flag reference for search / parse / more-words

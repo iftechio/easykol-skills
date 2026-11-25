@@ -78,10 +78,10 @@ async function apiCall(opts) {
   }
   const base = process.env.EASYKOL_API_BASE || cfg.apiBase || DEFAULT_API_BASE;
   const qs = opts.query ? "?" + Object.entries(opts.query).filter(([, v]) => v !== void 0 && v !== "").map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&") : "";
-  const url = `${base}/external/v${opts.version ?? 1}${opts.path}${qs}`;
+  const url2 = `${base}/external/v${opts.version ?? 1}${opts.path}${qs}`;
   let res;
   try {
-    res = await fetch(url, {
+    res = await fetch(url2, {
       method: opts.method || "GET",
       headers: {
         "ek-api-key": cfg.apiKey,
@@ -272,6 +272,8 @@ function searchInput(opts) {
   const platform = String(required(opts.platform, "--platform")).toUpperCase();
   if (!["TIKTOK", "YOUTUBE", "INSTAGRAM"].includes(platform))
     fail(EXIT.PARAMS, "--platform must be TIKTOK|YOUTUBE|INSTAGRAM");
+  if (opts.hasVideoCart && platform !== "TIKTOK")
+    fail(EXIT.PARAMS, "--has-video-cart requires --platform TIKTOK");
   if (opts.hasTkShop && platform !== "TIKTOK")
     fail(EXIT.PARAMS, "--has-tk-shop requires --platform TIKTOK");
   if (opts.gender && !["male", "female"].includes(opts.gender))
@@ -299,6 +301,7 @@ function searchInput(opts) {
       mustExclude: list(opts.exclude),
       hasContactInfo: opts.hasContact ? true : void 0,
       hasTkShop: opts.hasTkShop ? true : void 0,
+      hasVideoCart: opts.hasVideoCart ? true : void 0,
       gender: opts.gender,
       skinColor: list(opts.skinColors),
       ageRange: opts.ageRange,
@@ -361,6 +364,7 @@ var inputOptions = [
     flags: "--has-tk-shop",
     description: "require stored TikTok Shop presence (TIKTOK only)"
   },
+  { flags: "--has-video-cart", description: "require stored TikTok post-level product anchor evidence" },
   { flags: "--gender <g>", description: "creator gender male | female" },
   {
     flags: "--skin-colors <list>",
@@ -410,10 +414,10 @@ function reconcile(entry, task) {
   if (task.settlement && !task.settlement.pending)
     reconcileSearchTaskBudget(entry.identity, task.settlement.net * 10);
 }
-async function readSearchTask(taskId, opts = {}) {
+async function readSearchTask(taskId2, opts = {}) {
   return apiRequest({
     version: 2,
-    path: `${path}/${encodeURIComponent(taskId)}`,
+    path: `${path}/${encodeURIComponent(taskId2)}`,
     query: { offset: opts.offset, limit: opts.limit }
   });
 }
@@ -545,13 +549,13 @@ var SEARCH_COMMANDS = [
       }
     ],
     async run(opts) {
-      const taskId = required(opts.taskId, "--task-id");
-      const task = await readSearchTask(taskId, opts);
+      const taskId2 = required(opts.taskId, "--task-id");
+      const task = await readSearchTask(taskId2, opts);
       if ((0, import_node_fs2.existsSync)(journalDir))
         for (const name of (0, import_node_fs2.readdirSync)(journalDir)) {
           if (!name.endsWith(".json")) continue;
           const entry = JSON.parse((0, import_node_fs2.readFileSync)((0, import_node_path2.join)(journalDir, name), "utf8"));
-          if (entry.taskId === taskId && entry.identity === identity(entry.key))
+          if (entry.taskId === taskId2 && entry.identity === identity(entry.key))
             reconcile(entry, task);
         }
       emit(task);
@@ -569,14 +573,14 @@ var SEARCH_COMMANDS = [
       ...paidOptions
     ],
     async run(opts) {
-      const taskId = required(opts.taskId, "--task-id");
+      const taskId2 = required(opts.taskId, "--task-id");
       const idempotencyKey = key(opts);
-      const target = `${path}/${encodeURIComponent(taskId)}/next`;
+      const target = `${path}/${encodeURIComponent(taskId2)}/next`;
       let entry = load(idempotencyKey);
       if (entry && entry.path !== target)
         fail(EXIT.PARAMS, "This idempotency key belongs to a different task");
       if (!entry) {
-        const source = await readSearchTask(taskId);
+        const source = await readSearchTask(taskId2);
         if (source.status !== "COMPLETED")
           fail(EXIT.PARAMS, `Source is ${source.status}; wait for COMPLETED before continuing`);
         entry = {
@@ -865,6 +869,177 @@ var EMAIL_COMMANDS = [
   )
 ];
 
+// src/creator-workflows.ts
+var projectId = { flags: "--project-id <id>", description: "EasyKOL project ID (required)" };
+var taskId = { flags: "--task-id <id>", description: "ID returned when the task was created (required)" };
+var page = [
+  { flags: "--limit <n>", description: "page size, 1\u2013100 (default 20)" },
+  { flags: "--cursor <cursor>", description: "nextCursor from the previous page" }
+];
+var title = { flags: "--title <text>", description: "project title (required)" };
+var url = { flags: "--url <url>", description: "direct creator profile URL (required)" };
+var pathId = (value, name) => encodeURIComponent(required(value, name));
+var projectPath = (opts) => `/favorites/${pathId(opts.projectId, "--project-id")}`;
+function workflow(command2) {
+  return { ...command2, billing: "free (0 AI credits)" };
+}
+var CREATOR_WORKFLOW_COMMANDS = [
+  workflow({
+    name: "favorites-projects",
+    summary: "List your projects and find the project ID for a favorites action",
+    options: page,
+    async run({ limit, cursor }) {
+      emit(await apiRequest({ path: "/favorites", query: { limit, cursor } }));
+    }
+  }),
+  workflow({
+    name: "favorites-project",
+    summary: "Read a project by ID",
+    options: [projectId],
+    async run(opts) {
+      emit(await apiRequest({ path: projectPath(opts) }));
+    }
+  }),
+  workflow({
+    name: "favorites-create",
+    summary: "Create a project for favorites",
+    options: [title, { flags: "--description <text>", description: "optional project description" }],
+    async run(opts) {
+      emit(await apiRequest({ method: "POST", path: "/favorites", body: {
+        title: required(opts.title?.trim(), "--title"),
+        description: opts.description
+      } }));
+    }
+  }),
+  workflow({
+    name: "favorites-rename",
+    summary: "Rename one project",
+    options: [projectId, title],
+    async run(opts) {
+      emit(await apiRequest({ method: "PATCH", path: projectPath(opts), body: {
+        title: required(opts.title?.trim(), "--title")
+      } }));
+    }
+  }),
+  workflow({
+    name: "favorites-delete",
+    summary: "Delete a non-default project and remove it from your favorites project list",
+    options: [projectId, { flags: "--confirm-delete", description: "confirm the explicitly identified project deletion" }],
+    async run(opts) {
+      if (!opts.confirmDelete) fail(EXIT.PARAMS, "Confirm the identified project with --confirm-delete");
+      emit(await apiRequest({ method: "DELETE", path: projectPath(opts) }));
+    }
+  }),
+  workflow({
+    name: "favorites-list",
+    summary: "List the favorite creators in an owned project",
+    options: [
+      projectId,
+      ...page,
+      { flags: "--platform <name>", description: "TIKTOK, YOUTUBE or INSTAGRAM" }
+    ],
+    async run(opts) {
+      const platform = opts.platform?.toUpperCase();
+      if (platform && !["TIKTOK", "YOUTUBE", "INSTAGRAM"].includes(platform)) {
+        fail(EXIT.PARAMS, "--platform must be TIKTOK, YOUTUBE or INSTAGRAM");
+      }
+      emit(await apiRequest({ path: `${projectPath(opts)}/creators`, query: {
+        limit: opts.limit,
+        cursor: opts.cursor,
+        platform
+      } }));
+    }
+  }),
+  ...["add", "remove"].map((action) => workflow({
+    name: `favorites-${action}`,
+    summary: action === "add" ? "Save up to 100 existing creators to a project" : "Remove up to 100 creators from a project\u2019s favorites",
+    options: [projectId, { flags: "--kol-ids <ids>", description: "comma-separated stable EasyKOL creator IDs (required)" }],
+    async run(opts) {
+      const kolIds = [...new Set(required(opts.kolIds, "--kol-ids").split(",").map((id2) => id2.trim()).filter(Boolean))];
+      if (!kolIds.length || kolIds.length > 100) fail(EXIT.PARAMS, "Provide 1\u2013100 EasyKOL creator IDs");
+      emit(await apiRequest({ method: "POST", path: `${projectPath(opts)}/creators`, body: { action, kolIds } }));
+    }
+  })),
+  workflow({
+    name: "favorites-share",
+    summary: "Create, update or revoke a read-only favorites share",
+    options: [
+      projectId,
+      { flags: "--scope <scope>", description: "workspace, public, or off (required)" },
+      { flags: "--expire-days <n>", description: "1\u201330 days (default 7)" }
+    ],
+    async run(opts) {
+      const scope2 = required(opts.scope, "--scope");
+      if (!["workspace", "public", "off"].includes(scope2)) fail(EXIT.PARAMS, "Use workspace, public, or off");
+      const expireDays = opts.expireDays === void 0 ? void 0 : Number(opts.expireDays);
+      if (expireDays !== void 0 && (!Number.isInteger(expireDays) || expireDays < 1 || expireDays > 30)) {
+        fail(EXIT.PARAMS, "--expire-days must be between 1 and 30");
+      }
+      emit(await apiRequest({ method: "PUT", path: `${projectPath(opts)}/share`, body: { scope: scope2, expireDays } }));
+    }
+  }),
+  workflow({
+    name: "favorites-shared",
+    summary: "Read a shared favorites snapshot using its share key",
+    options: [
+      { flags: "--share-key <key>", description: "share key (required)" },
+      { flags: "--limit <n>", description: "page size, 1\u2013100 (default 20)" },
+      { flags: "--offset <n>", description: "nextOffset returned by the previous page" }
+    ],
+    async run(opts) {
+      emit(await apiRequest({
+        path: `/favorites/shared/${pathId(opts.shareKey, "--share-key")}`,
+        query: { limit: opts.limit, offset: opts.offset }
+      }));
+    }
+  }),
+  workflow({
+    name: "favorites-export",
+    summary: "Start the web\u2019s personal favorites Excel export for one project",
+    options: [
+      projectId,
+      { flags: "--days <n>", description: "export range, 1, 7 or 30 days (required)" },
+      { flags: "--lang <name>", description: "en or zh (default en)" }
+    ],
+    async run(opts) {
+      const recentDays = Number(required(opts.days, "--days"));
+      if (![1, 7, 30].includes(recentDays)) fail(EXIT.PARAMS, "--days must be 1, 7 or 30");
+      if (opts.lang && !["en", "zh"].includes(opts.lang)) fail(EXIT.PARAMS, "--lang must be en or zh");
+      emit(await apiRequest({ method: "POST", path: `${projectPath(opts)}/exports`, body: {
+        recentDays,
+        lang: opts.lang
+      }, timeoutMs: 3e4 }));
+    }
+  }),
+  workflow({
+    name: "favorites-export-result",
+    summary: "Read status or the download URL for an existing favorites export",
+    options: [projectId, taskId],
+    async run(opts) {
+      emit(await apiRequest({ path: `${projectPath(opts)}/exports/${pathId(opts.taskId, "--task-id")}` }));
+    }
+  }),
+  {
+    name: "fake-followers",
+    summary: "Start a standalone TikTok, Instagram or YouTube audience sample report",
+    billing: "2 AI credits for a new report at the web rate; eligible reuse is free",
+    options: [url],
+    async run(opts) {
+      emit(await apiRequest({ method: "POST", path: "/fake-followers", body: {
+        url: required(opts.url, "--url")
+      }, timeoutMs: 45e3 }));
+    }
+  },
+  workflow({
+    name: "fake-followers-result",
+    summary: "Read an existing follower or commenter sample report by task ID",
+    options: [taskId],
+    async run(opts) {
+      emit(await apiRequest({ path: `/fake-followers/${pathId(opts.taskId, "--task-id")}` }));
+    }
+  })
+];
+
 // src/commands.ts
 function parseList(v) {
   if (!v) return void 0;
@@ -985,6 +1160,7 @@ var API_COMMANDS = [
       { flags: "--max-avg-views <n>", description: "max avg views (TT/YT)" },
       { flags: "--min-avg-likes <n>", description: "min avg likes (IG only)" },
       { flags: "--max-avg-likes <n>", description: "max avg likes (IG only)" },
+      { flags: "--has-video-cart", description: "requires a TikTok seed and stored post-level product anchor evidence" },
       { flags: "--dedup-days <n>", description: "skip creators seen in past N days (default 3, 0 = off)" },
       { flags: "--timeout <s>", description: "poll timeout in seconds (default 120)" }
     ],
@@ -992,6 +1168,7 @@ var API_COMMANDS = [
       const seedProfileUrl = required(opts.url, "--url");
       const body2 = {
         seedProfileUrl,
+        hasVideoCart: opts.hasVideoCart ? true : void 0,
         dedupDays: num(opts.dedupDays) ?? 3,
         regions: parseList(opts.regions),
         languages: parseList(opts.languages),
@@ -1016,8 +1193,8 @@ var API_COMMANDS = [
       { flags: "--url <url>", description: "social media profile URL (required)" }
     ],
     async run(opts) {
-      const url = required(opts.url, "--url");
-      const data = await apiRequest({ path: "/kol", query: { url } });
+      const url2 = required(opts.url, "--url");
+      const data = await apiRequest({ path: "/kol", query: { url: url2 } });
       emit(data);
     }
   },
@@ -1030,12 +1207,29 @@ var API_COMMANDS = [
       { flags: "--limit <n>", description: "maximum results, 1\u201360 (default 20)" }
     ],
     async run(opts) {
-      const url = required(opts.url, "--url");
+      const url2 = required(opts.url, "--url");
       const limit = creatorLookupLimit(opts.limit);
       emit(await apiRequest({
         method: "POST",
         path: "/creators/recent-posts",
-        body: { url, limit },
+        body: { url: url2, limit },
+        timeoutMs: 45e3
+      }));
+    }
+  },
+  {
+    name: "tiktok-cart",
+    summary: "Check recent stored TikTok posts for product anchors",
+    billing: "0.1 AI credits per successful query; failed queries do not charge",
+    options: [
+      { flags: "--url <url>", description: "direct TikTok profile URL (required)" },
+      { flags: "--limit <n>", description: "number of stored posts to examine, 1\u201360 (default 20)" }
+    ],
+    async run(opts) {
+      emit(await apiRequest({
+        method: "POST",
+        path: "/creators/recent-posts",
+        body: { url: required(opts.url, "--url"), limit: creatorLookupLimit(opts.limit), cartOnly: true },
         timeoutMs: 45e3
       }));
     }
@@ -1089,10 +1283,10 @@ var API_COMMANDS = [
         path: "/kol-emails",
         body: { ttUrls, ytbUrls, insUrls }
       });
-      const taskId = task.taskId ?? task.id;
-      required(taskId, "taskId from response");
+      const taskId2 = task.taskId ?? task.id;
+      required(taskId2, "taskId from response");
       const timeoutMs = (num(opts.timeout) ?? 180) * 1e3;
-      const done = await pollTask(`/kol-emails/${taskId}`, 4e3, timeoutMs);
+      const done = await pollTask(`/kol-emails/${taskId2}`, 4e3, timeoutMs);
       emit(done);
     }
   },
@@ -1155,8 +1349,8 @@ var API_COMMANDS = [
       { flags: "--url <url>", description: "video or post URL (required)" }
     ],
     async run(opts) {
-      const url = required(opts.url, "--url");
-      const data = await apiRequest({ path: "/video", query: { url } });
+      const url2 = required(opts.url, "--url");
+      const data = await apiRequest({ path: "/video", query: { url: url2 } });
       emit(data);
     }
   },
@@ -1173,36 +1367,36 @@ var API_COMMANDS = [
       { flags: "--timeout <s>", description: "poll timeout in seconds (default 600)" }
     ],
     async run(opts) {
-      const url = required(opts.url, "--url").trim();
+      const url2 = required(opts.url, "--url").trim();
       const prompt = required(opts.prompt, "--prompt").trim();
       const language = opts.language ?? "en";
-      const taskId = (opts.taskId ?? (0, import_node_crypto2.randomUUID)()).toLowerCase();
+      const taskId2 = (opts.taskId ?? (0, import_node_crypto2.randomUUID)()).toLowerCase();
       const timeout = opts.timeout === void 0 ? 600 : Number(opts.timeout);
-      if (!url || url.length > 2048) fail(EXIT.PARAMS, "Enter one valid video URL");
+      if (!url2 || url2.length > 2048) fail(EXIT.PARAMS, "Enter one valid video URL");
       if (!prompt || [...prompt].length > 2e3) fail(EXIT.PARAMS, "The prompt must be 1\u20132000 characters");
       if (language.length > 35 || !/^[a-z]{2,8}(?:-[a-z0-9]{1,8})*$/i.test(language)) {
         fail(EXIT.PARAMS, "Use a valid --language tag such as zh-CN");
       }
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(taskId)) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(taskId2)) {
         fail(EXIT.PARAMS, "Use the task UUID printed by the original submission");
       }
       if (!Number.isInteger(timeout) || timeout < 0 || timeout > 600) {
         fail(EXIT.PARAMS, "--timeout must be an integer between 0 and 600 seconds");
       }
-      process.stderr.write(`Video analysis task ${taskId}. Read with video-analysis-result --task-id ${taskId}
+      process.stderr.write(`Video analysis task ${taskId2}. Read with video-analysis-result --task-id ${taskId2}
 `);
       const task = await apiRequest({
         method: "POST",
         path: "/ai-video-analysis",
-        body: { taskId, url, prompt, language },
+        body: { taskId: taskId2, url: url2, prompt, language },
         timeoutMs: 45e3
       });
-      if (task.taskId !== taskId) fail(EXIT.GENERIC, "Unexpected video analysis task ID");
+      if (task.taskId !== taskId2) fail(EXIT.GENERIC, "Unexpected video analysis task ID");
       if (opts.submitOnly || task.status === "COMPLETED" || task.status === "FAILED") {
         emit(task);
         return;
       }
-      const result = await pollTask(`/ai-video-analysis/${taskId}`, 5e3, timeout * 1e3, 15e3);
+      const result = await pollTask(`/ai-video-analysis/${taskId2}`, 5e3, timeout * 1e3, 15e3);
       emit({ ...result, pricePoints: task.pricePoints });
     }
   },
@@ -1214,9 +1408,9 @@ var API_COMMANDS = [
       { flags: "--task-id <id>", description: "ID of the existing video analysis task (required)" }
     ],
     async run(opts) {
-      const taskId = required(opts.taskId, "--task-id");
-      if (!/^[a-zA-Z0-9_-]{1,64}$/.test(taskId)) fail(EXIT.PARAMS, "Invalid --task-id");
-      emit(await apiRequest({ path: `/ai-video-analysis/${taskId}`, timeoutMs: 15e3 }));
+      const taskId2 = required(opts.taskId, "--task-id");
+      if (!/^[a-zA-Z0-9_-]{1,64}$/.test(taskId2)) fail(EXIT.PARAMS, "Invalid --task-id");
+      emit(await apiRequest({ path: `/ai-video-analysis/${taskId2}`, timeoutMs: 15e3 }));
     }
   },
   {
@@ -1230,7 +1424,7 @@ var API_COMMANDS = [
       { flags: "--timeout <s>", description: "poll timeout in seconds (default 120)" }
     ],
     async run(opts) {
-      const url = required(opts.url, "--url");
+      const url2 = required(opts.url, "--url");
       const tier = opts.dataMultiplier ?? "2";
       if (tier !== "1" && tier !== "2" && tier !== "6") {
         fail(EXIT.PARAMS, "--data-multiplier must be 1, 2, or 6");
@@ -1238,7 +1432,7 @@ var API_COMMANDS = [
       const task = await apiRequest({
         method: "POST",
         path: "/audience",
-        body: { url, dataMultiplier: Number(tier) }
+        body: { url: url2, dataMultiplier: Number(tier) }
       });
       if (opts.submitOnly) {
         emit(task);
@@ -1263,9 +1457,9 @@ var API_COMMANDS = [
       { flags: "--task-id <id>", description: "task ID returned by audience (required)" }
     ],
     async run(opts) {
-      const taskId = required(opts.taskId, "--task-id");
-      if (!/^[a-zA-Z0-9_-]+$/.test(taskId)) fail(EXIT.PARAMS, "Invalid --task-id");
-      emit(await apiRequest({ path: `/audience/${taskId}`, timeoutMs: 15e3 }));
+      const taskId2 = required(opts.taskId, "--task-id");
+      if (!/^[a-zA-Z0-9_-]+$/.test(taskId2)) fail(EXIT.PARAMS, "Invalid --task-id");
+      emit(await apiRequest({ path: `/audience/${taskId2}`, timeoutMs: 15e3 }));
     }
   },
   {
@@ -1365,7 +1559,8 @@ var API_COMMANDS = [
     }
   },
   ...SEARCH_COMMANDS,
-  ...EMAIL_COMMANDS
+  ...EMAIL_COMMANDS,
+  ...CREATOR_WORKFLOW_COMMANDS
 ];
 function describe(cmd) {
   return {

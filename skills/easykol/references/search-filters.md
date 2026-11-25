@@ -22,6 +22,7 @@ fast. Omit unspecified hard filters; do not invent follower or geography default
 | --avg-min / --avg-max | Average views (TT/YT), average likes (IG) |
 | --has-contact | Contact record present; not proof of a public/deliverable email |
 | --has-tk-shop | Require stored TikTok Shop presence; TikTok only, not a live shop check |
+| --has-video-cart | TikTok only. Require explicit post-level product anchors in stored data. Search V2 uses the advanced-filter price |
 | --gender | Creator male / female; not audience gender |
 | --skin-colors / --age-range | Creator code keys (`white`, `youngAdult`) or numeric age range |
 | --main-category / --sub-category | Content taxonomy code keys such as `beauty` / `makeup` |

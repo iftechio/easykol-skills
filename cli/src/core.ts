@@ -105,6 +105,10 @@ interface CallOptions {
   timeoutMs?: number
 }
 
+function isEmailMutation({ method = 'GET', path }: CallOptions): boolean {
+  return path.startsWith('/email/') && !['GET', 'HEAD'].includes(method.toUpperCase())
+}
+
 async function apiFetch(opts: CallOptions): Promise<Response> {
   const cfg = loadConfig()
   if (!cfg.apiKey || !cfg.email) {
@@ -130,6 +134,7 @@ async function apiFetch(opts: CallOptions): Promise<Response> {
       'content-type': 'application/json',
     },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    ...(isEmailMutation(opts) ? { redirect: 'manual' as const } : {}),
     // Preserve V1's existing timeout behavior. Only V2 defaults to a request deadline.
     ...(opts.timeoutMs !== undefined || opts.version === 2
       ? { signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000) }
@@ -152,6 +157,15 @@ export async function apiCall(opts: CallOptions): Promise<RawResult> {
     res = await apiFetch(opts)
   } catch (e: any) {
     return { ok: false, status: 0, json: null, networkError: e?.message || String(e) }
+  }
+
+  if (isEmailMutation(opts) && res.status >= 300 && res.status < 400) {
+    return {
+      ok: false,
+      status: res.status,
+      json: null,
+      networkError: 'An email change returned a redirect. Check its current state in EasyKOL before trying again.',
+    }
   }
 
   let text: string

@@ -70,6 +70,9 @@ function required(value, name) {
   }
   return value;
 }
+function isEmailMutation({ method = "GET", path: path2 }) {
+  return path2.startsWith("/email/") && !["GET", "HEAD"].includes(method.toUpperCase());
+}
 async function apiFetch(opts) {
   const cfg = loadConfig();
   if (!cfg.apiKey || !cfg.email) {
@@ -88,6 +91,7 @@ async function apiFetch(opts) {
       "content-type": "application/json"
     },
     body: opts.body !== void 0 ? JSON.stringify(opts.body) : void 0,
+    ...isEmailMutation(opts) ? { redirect: "manual" } : {},
     // Preserve V1's existing timeout behavior. Only V2 defaults to a request deadline.
     ...opts.timeoutMs !== void 0 || opts.version === 2 ? { signal: AbortSignal.timeout(opts.timeoutMs ?? 6e4) } : {}
   });
@@ -105,6 +109,14 @@ async function apiCall(opts) {
     res = await apiFetch(opts);
   } catch (e) {
     return { ok: false, status: 0, json: null, networkError: e?.message || String(e) };
+  }
+  if (isEmailMutation(opts) && res.status >= 300 && res.status < 400) {
+    return {
+      ok: false,
+      status: res.status,
+      json: null,
+      networkError: "An email change returned a redirect. Check its current state in EasyKOL before trying again."
+    };
   }
   let text;
   try {
@@ -795,6 +807,26 @@ async function body(opts) {
     fail(EXIT.PARAMS, "Body must be a JSON object");
   return parsed;
 }
+async function submitEmailChange(options, reportUncertain) {
+  let result;
+  try {
+    result = await apiCall(options);
+  } catch {
+    return reportUncertain();
+  }
+  if (result.ok) return result;
+  if (result.networkError || result.status >= 500) return reportUncertain();
+  return failHttp(loadConfig().apiBase || DEFAULT_API_BASE, result);
+}
+function failUncertainSend() {
+  fail(
+    EXIT.NETWORK,
+    "Email submission result is uncertain; do not resend automatically. Check email records first.",
+    {
+      hint: "Check email-record or email-records before considering another send."
+    }
+  );
+}
 function command(name, summary, options, run) {
   return {
     name,
@@ -899,13 +931,21 @@ var EMAIL_COMMANDS = [
           EXIT.PARAMS,
           "Review pending schedule impact, then use --confirm-scheduled-changes"
         );
-      emit(
-        await apiRequest({
+      const result = await submitEmailChange(
+        {
           method: "PUT",
           path: `/email/templates/${id(o)}/followups`,
           body: { ...await body(o), confirmScheduledChanges: true }
-        })
+        },
+        () => fail(
+          EXIT.NETWORK,
+          "Automatic follow-up change is uncertain; do not retry automatically. Check the saved sequence and pending plans first.",
+          {
+            hint: "Use email-followups-get and review pending plans in EasyKOL before considering another change."
+          }
+        )
       );
+      emit(result.json?.data ?? result.json);
     }
   ),
   command(
@@ -992,43 +1032,18 @@ var EMAIL_COMMANDS = [
           EXIT.PARAMS,
           "Review sender, recipient, content and follow-ups, then use --confirm-send"
         );
-      let result;
-      try {
-        result = await apiCall({
+      const result = await submitEmailChange(
+        {
           method: "POST",
           path: "/email/send",
           body: { ...await body(o), confirmSend: true },
           timeoutMs: 12e4
-        });
-      } catch {
-        fail(
-          EXIT.NETWORK,
-          "Email submission result is uncertain; do not resend automatically. Check email records first.",
-          {
-            hint: "Check email-record or email-records before considering another send."
-          }
-        );
-      }
-      if (!result.ok && (result.networkError || result.status >= 500)) {
-        fail(
-          EXIT.NETWORK,
-          "Email submission result is uncertain; do not resend automatically. Check email records first.",
-          {
-            hint: "Check email-record or email-records before considering another send."
-          }
-        );
-      }
-      if (!result.ok)
-        failHttp(loadConfig().apiBase || DEFAULT_API_BASE, result);
+        },
+        failUncertainSend
+      );
       const sent = result.json?.data;
       if (!sent?.record || typeof sent.record.id !== "string" || !sent.record.id || sent.record.submissionState !== "ACCEPTED" || typeof sent.record.sentAt !== "string" || !Number.isFinite(Date.parse(sent.record.sentAt))) {
-        fail(
-          EXIT.NETWORK,
-          "Email submission result is uncertain; do not resend automatically. Check email records first.",
-          {
-            hint: "Check email-record or email-records before considering another send."
-          }
-        );
+        failUncertainSend();
       }
       emit(sent);
     }

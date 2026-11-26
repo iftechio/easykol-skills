@@ -41,8 +41,9 @@ accepts `followupEmails: [{"content":"...","daysAfter":3}]` with whole days >= 1
 including adding future follow-ups to active threads. Explain this impact and get
 authorization for the concrete sequence before setting the flag. Existing authorization
 applies when it already covers the change. A replacement can cancel pending steps.
-If the result is uncertain, read the saved sequence and review pending plans
-before considering another change.
+The helper verifies the returned template and saved sequence. If the result is
+uncertain, read the saved sequence and review pending plans before considering
+another change.
 Apply the environment’s data-deletion rules before changing or clearing a
 sequence. EasyKOL runs the scheduled sequence and checks for replies in the
 original conversation. Check the thread and mailbox status in the web workflow

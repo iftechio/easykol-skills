@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-async function harness(t, response = "success") {
+async function harness(t, response = "success", redirectTarget = "/redirected") {
   const dir = mkdtempSync(join(tmpdir(), "easykol-email-"));
   const requests = [];
   const server = createServer(async (req, res) => {
@@ -23,6 +23,11 @@ async function harness(t, response = "success") {
     if (response === "error") {
       res.statusCode = 503;
       return res.end('{"message":"unavailable"}');
+    }
+    if (typeof response === "number" && req.url !== redirectTarget) {
+      res.statusCode = response;
+      res.setHeader("location", redirectTarget);
+      return res.end();
     }
     const data =
       req.url === "/external/v1/email/send"
@@ -227,3 +232,89 @@ for (const response of ["missing-record", "unconfirmed"])
     assert.equal(h.requests.length, 1);
     assert.match(JSON.stringify(r.json), /do not resend automatically/);
   });
+
+for (const status of [301, 302, 303, 304, 307, 308])
+  test(`HTTP ${status} does not repeat a send or a schedule change`, async (t) => {
+    const h = await harness(t, status);
+    const sent = await h.run([
+      "email-send",
+      "--body-file",
+      h.bodyPath,
+      "--confirm-send",
+    ]);
+    const scheduled = await h.run(
+      [
+        "email-followups-set",
+        "--id",
+        "template",
+        "--body-file",
+        "-",
+        "--confirm-scheduled-changes",
+      ],
+      '{"followupEmails":[{"content":"Follow-up","daysAfter":3}]}',
+    );
+    assert.equal(sent.code, 5);
+    assert.match(sent.json.error.message, /uncertain; do not resend automatically/);
+    assert.match(sent.json.action.hint, /email-record/);
+    assert.equal(scheduled.code, 5);
+    assert.match(scheduled.json.error.message, /uncertain; do not retry automatically/);
+    assert.match(scheduled.json.action.hint, /email-followups-get.*pending plans/);
+    assert.deepEqual(
+      h.requests.map(({ method, path }) => [method, path]),
+      [
+        ["POST", "/external/v1/email/send"],
+        ["PUT", "/external/v1/email/templates/template/followups"],
+      ],
+    );
+  });
+
+test("other email writes never contact a redirect target", async (t) => {
+  const redirected = [];
+  const target = createServer((req, res) => {
+    redirected.push(req.headers);
+    res.setHeader("content-type", "application/json");
+    res.end('{"data":{"id":"redirected"}}');
+  });
+  await new Promise((resolve) => target.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => target.close(resolve)));
+  const redirectUrl = `http://127.0.0.1:${target.address().port}/redirected`;
+  const h = await harness(t, 307, redirectUrl);
+  const writes = [
+    ["email-template-create", "POST", "/email/templates", ["--body-file", "-"]],
+    ["email-template-update", "PATCH", "/email/enterprise/templates/test", ["--id", "test", "--shared", "--body-file", "-"]],
+    ["email-followup-template-create", "POST", "/email/follow-up-templates", ["--body-file", "-"]],
+    ["email-followup-template-update", "PATCH", "/email/follow-up-templates/test", ["--id", "test", "--body-file", "-"]],
+    ["email-sender-default", "POST", "/email/senders/test/default", ["--id", "test"]],
+    ["email-sender-nickname", "PATCH", "/email/senders/test/nickname", ["--id", "test", "--body-file", "-"]],
+    ["email-sender-limit", "PATCH", "/email/senders/test/auto-email-limit", ["--id", "test", "--body-file", "-"]],
+  ];
+  for (const [command, , , args] of writes) {
+    const result = await h.run([command, ...args], "{}");
+    assert.equal(result.code, 5, command);
+    assert.match(result.json.error.message, /Check its current state/);
+    assert.ok(!result.json.error.message.includes(redirectUrl));
+  }
+  assert.deepEqual(
+    h.requests.map(({ method, path }) => [method, path]),
+    writes.map(([, method, path]) => [method, `/external/v1${path}`]),
+  );
+  assert.deepEqual(redirected, []);
+});
+
+test("email reads and non-email writes retain standard redirect handling", async (t) => {
+  const h = await harness(t, 307);
+  assert.equal((await h.run(["email-records"])).code, 0);
+  assert.equal(
+    (await h.run(["creators-by-email", "--email", "fixture@example.com"])).code,
+    0,
+  );
+  assert.deepEqual(
+    h.requests.map(({ method, path }) => [method, path.split("?")[0]]),
+    [
+      ["GET", "/external/v1/email/records"],
+      ["GET", "/redirected"],
+      ["POST", "/external/v1/creators/by-email"],
+      ["POST", "/redirected"],
+    ],
+  );
+});

@@ -75,15 +75,21 @@ reporting.
    summary card is an aggregate across submissions. Use matched rows to report
    queued, scheduled, sent, failed, paused and canceled counts, and identify any
    recipients you could not verify. The dialog count is an estimate before
-   submission. If the outcome is uncertain, check the plan and send records and
-   leave it unconfirmed until you can establish whether it was queued or sent.
+   submission. If the outcome is uncertain, keep the original submission and
+   check its receipt, plans and send records. Leave it unconfirmed until you
+   can establish whether it was queued or sent. Do not create a replacement
+   batch, change its settings to get past the pending submission, or use
+   single sends as a fallback.
 
 ## Follow-ups and conversation handling
 
 - Use [邮件模板](https://app.easykol.com/email/template) to view or configure an
-  initial template's automatic sequence. Use the API read when available.
-  The web follow-up editor saves text and delay changes automatically. Verify
-  authorization for the text, days and sender before opening a step for editing.
+  initial template's automatic sequence. Prefer the API read for inspection.
+  Verify authorization for the text, days and sender before editing. Use the
+  web editor only when it offers explicit Save and Cancel for the sequence.
+  Older web releases save automatically, including when an existing step is
+  opened. On those releases use the guarded API workflow for changes.
+  Review the full sequence and its impact before using Save or Remove.
   Saving can modify pending steps and add steps to existing conversations,
   including teammates' schedules for a shared template. Confirm the affected
   scope before saving. EasyKOL uses synced reply status and creates follow-up

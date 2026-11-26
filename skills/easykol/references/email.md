@@ -8,7 +8,9 @@ availability issue, use the [email web workflow](email-web.md) under the intende
 account. Keep credentials out of prompts, logs and output.
 Apply the [email action scope](../SKILL.md#easykol-email-outreach) to both API
 and web operations. Pass a confirmation flag only for the user-authorized
-action after verifying its scope.
+action after verifying its scope. The API helper stops on redirects for email
+writes. If a change returns a redirect, check the current state before another
+attempt.
 
 ## Templates
 
@@ -39,6 +41,8 @@ accepts `followupEmails: [{"content":"...","daysAfter":3}]` with whole days >= 1
 including adding future follow-ups to active threads. Explain this impact and get
 authorization for the concrete sequence before setting the flag. Existing authorization
 applies when it already covers the change. A replacement can cancel pending steps.
+If the result is uncertain, read the saved sequence and review pending plans
+before considering another change.
 Apply the environment’s data-deletion rules before changing or clearing a
 sequence. EasyKOL runs the scheduled sequence and checks for replies in the
 original conversation. Check the thread and mailbox status in the web workflow

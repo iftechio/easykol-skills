@@ -827,6 +827,15 @@ function failUncertainSend() {
     }
   );
 }
+function failUncertainFollowups() {
+  fail(
+    EXIT.NETWORK,
+    "Automatic follow-up change is uncertain; do not retry automatically. Check the saved sequence and pending plans first.",
+    {
+      hint: "Use email-followups-get and review pending plans in EasyKOL before considering another change."
+    }
+  );
+}
 function command(name, summary, options, run) {
   return {
     name,
@@ -931,21 +940,26 @@ var EMAIL_COMMANDS = [
           EXIT.PARAMS,
           "Review pending schedule impact, then use --confirm-scheduled-changes"
         );
+      const templateId = required(o.id, "--id");
+      const payload = await body(o);
       const result = await submitEmailChange(
         {
           method: "PUT",
-          path: `/email/templates/${id(o)}/followups`,
-          body: { ...await body(o), confirmScheduledChanges: true }
+          path: `/email/templates/${encodeURIComponent(templateId)}/followups`,
+          body: { ...payload, confirmScheduledChanges: true },
+          timeoutMs: 12e4
         },
-        () => fail(
-          EXIT.NETWORK,
-          "Automatic follow-up change is uncertain; do not retry automatically. Check the saved sequence and pending plans first.",
-          {
-            hint: "Use email-followups-get and review pending plans in EasyKOL before considering another change."
-          }
-        )
+        failUncertainFollowups
       );
-      emit(result.json?.data ?? result.json);
+      const saved = result.json?.data;
+      const requestedSteps = payload.followupEmails;
+      if (saved?.templateId !== templateId || !Array.isArray(saved.followupEmails) || !Array.isArray(requestedSteps) || saved.followupEmails.length !== requestedSteps.length || requestedSteps.some((step, index) => {
+        const actual = saved.followupEmails[index];
+        return typeof actual?.content !== "string" || !Number.isInteger(actual.daysAfter) || actual.content !== step?.content || actual.daysAfter !== step?.daysAfter;
+      })) {
+        failUncertainFollowups();
+      }
+      emit(saved);
     }
   ),
   command(

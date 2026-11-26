@@ -29,6 +29,18 @@ async function harness(t, response = "success", redirectTarget = "/redirected") 
       res.setHeader("location", redirectTarget);
       return res.end();
     }
+    if (req.method === "PUT" && req.url.endsWith("/followups")) {
+      if (response === "empty-sequence-receipt") return res.end();
+      const templateId = decodeURIComponent(req.url.split("/").at(-2));
+      const { followupEmails } = JSON.parse(raw);
+      return res.end(JSON.stringify({
+        statusCode: 200,
+        data: {
+          templateId: response === "wrong-template" ? "another-template" : templateId,
+          followupEmails: response === "wrong-sequence" ? [] : followupEmails,
+        },
+      }));
+    }
     const data =
       req.url === "/external/v1/email/send"
         ? response === "missing-record"
@@ -184,7 +196,33 @@ test("scheduled change flag is required and allows an authorized clear", async (
     followupEmails: [],
     confirmScheduledChanges: true,
   });
+  const followupEmails = [{ content: "Follow-up", daysAfter: 3 }];
+  const updated = await h.run(
+    [...args, "--confirm-scheduled-changes"],
+    JSON.stringify({ followupEmails }),
+  );
+  assert.equal(updated.code, 0);
+  assert.deepEqual(updated.json.data, { templateId: "template", followupEmails });
 });
+
+for (const response of ["empty-sequence-receipt", "wrong-template", "wrong-sequence"])
+  test(`an unconfirmed follow-up change (${response}) is not retried`, async (t) => {
+    const h = await harness(t, response);
+    const result = await h.run(
+      [
+        "email-followups-set",
+        "--id",
+        "template",
+        "--body-file",
+        "-",
+        "--confirm-scheduled-changes",
+      ],
+      '{"followupEmails":[{"content":"Follow-up","daysAfter":3}]}',
+    );
+    assert.equal(result.code, 5);
+    assert.match(result.json.error.message, /uncertain; do not retry automatically/);
+    assert.equal(h.requests.length, 1);
+  });
 test("result queries and sender configuration use email endpoints", async (t) => {
   const h = await harness(t);
   for (const args of [

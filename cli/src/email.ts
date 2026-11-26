@@ -74,6 +74,16 @@ function failUncertainSend(): never {
   );
 }
 
+function failUncertainFollowups(): never {
+  fail(
+    EXIT.NETWORK,
+    "Automatic follow-up change is uncertain; do not retry automatically. Check the saved sequence and pending plans first.",
+    {
+      hint: "Use email-followups-get and review pending plans in EasyKOL before considering another change.",
+    },
+  );
+}
+
 function command(
   name: string,
   summary: string,
@@ -189,22 +199,37 @@ export const EMAIL_COMMANDS: CommandDef[] = [
           EXIT.PARAMS,
           "Review pending schedule impact, then use --confirm-scheduled-changes",
         );
+      const templateId = required<string>(o.id, "--id");
+      const payload = await body(o);
       const result = await submitEmailChange(
         {
           method: "PUT",
-          path: `/email/templates/${id(o)}/followups`,
-          body: { ...(await body(o)), confirmScheduledChanges: true },
+          path: `/email/templates/${encodeURIComponent(templateId)}/followups`,
+          body: { ...payload, confirmScheduledChanges: true },
+          timeoutMs: 120_000,
         },
-        () =>
-          fail(
-            EXIT.NETWORK,
-            "Automatic follow-up change is uncertain; do not retry automatically. Check the saved sequence and pending plans first.",
-            {
-              hint: "Use email-followups-get and review pending plans in EasyKOL before considering another change.",
-            },
-          ),
+        failUncertainFollowups,
       );
-      emit(result.json?.data ?? result.json);
+      const saved = result.json?.data;
+      const requestedSteps = payload.followupEmails;
+      if (
+        saved?.templateId !== templateId ||
+        !Array.isArray(saved.followupEmails) ||
+        !Array.isArray(requestedSteps) ||
+        saved.followupEmails.length !== requestedSteps.length ||
+        requestedSteps.some((step, index) => {
+          const actual = saved.followupEmails[index];
+          return (
+            typeof actual?.content !== "string" ||
+            !Number.isInteger(actual.daysAfter) ||
+            actual.content !== step?.content ||
+            actual.daysAfter !== step?.daysAfter
+          );
+        })
+      ) {
+        failUncertainFollowups();
+      }
+      emit(saved);
     },
   ),
   command(
